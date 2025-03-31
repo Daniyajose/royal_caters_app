@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "504216557296",
+    "project_id": "royal-caters",
+    "storage_bucket": "royal-caters.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:504216557296:android:4de8f1fb426fa753de5435",
+        "android_client_info": {
+          "package_name": "com.royalcaters.royalcaters"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBVAR7NXByVMf6NoNJLhfiMg_4U34pHNM0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

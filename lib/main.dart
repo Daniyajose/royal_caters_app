@@ -1,125 +1,183 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:royalcaters/src/bloc/auth/auth_bloc.dart';
+import 'package:royalcaters/src/bloc/order/order_bloc.dart';
+import 'package:royalcaters/src/bloc/user/user_bloc.dart';
+import 'package:royalcaters/src/firebase/notification_service.dart';
+import 'package:royalcaters/src/repositories/auth_repository.dart';
+import 'package:royalcaters/src/repositories/order_repository.dart';
+import 'package:royalcaters/src/repositories/user_repository.dart';
+import 'package:royalcaters/src/screens/add_user/user_list_screen.dart';
+import 'package:royalcaters/src/screens/auth/change_password_screen.dart';
+import 'package:royalcaters/src/screens/auth/login_screen.dart';
+import 'package:royalcaters/src/screens/auth/registration_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:royalcaters/src/screens/homescreen/HomeScreen.dart';
+import 'package:royalcaters/src/screens/order/create_order_screen.dart';
+import 'package:royalcaters/src/screens/splashscreen.dart';
+import 'package:royalcaters/utils/constants/enums.dart';
+import 'package:royalcaters/utils/constants/string_constant.dart';
+import 'package:royalcaters/utils/pref/preference_data.dart';
+import 'package:royalcaters/utils/widgets/toast.dart';
+import 'package:timezone/data/latest.dart' as tz;
 
-void main() {
-  runApp(const MyApp());
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  print("Handling a background message: ${message.messageId}");
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppPreferences.init();
+  tz.initializeTimeZones();
+  await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  // This widget is the root of your application.
+  final authRepository = AuthRepository();
+  final userRepository = UserRepository();
+  final orderRepository = OrderRepository();
+
+  NotificationService.initialize(); // Add this line
+  await FirebaseMessaging.instance.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+
+  runApp(
+    MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>(
+          create: (context) => AuthBloc(authRepository: authRepository),
+        ),
+        BlocProvider<UserBloc>(
+          create: (context) => UserBloc(userRepository: userRepository),
+        ),
+        BlocProvider<OrderBloc>(
+          create: (context) => OrderBloc(orderRepository),
+        ),
+      ],
+      child: MyApp(),
+    ),
+  );
+}
+
+class MyApp extends StatefulWidget {
+  @override
+  _MyAppState createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  bool _isUserExist = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _startSplashScreen();
+  }
+
+  Future<void> _startSplashScreen() async {
+    await Future.delayed(const Duration(seconds: 2)); // Wait for 2 seconds
+    await _checkUserExistence();
+   // setState(() {});
+  }
+
+  Future<void> _checkUserExistence() async {
+    try {
+      QuerySnapshot usersSnapshot = await FirebaseFirestore.instance.collection('users').get();
+      User? user = FirebaseAuth.instance.currentUser;
+      bool anyUserExists = usersSnapshot.docs.isNotEmpty;
+
+      if (user != null) {
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (!userDoc.exists) {
+          // User exists in Firebase Auth but not in Firestore 'users' collection
+          await FirebaseAuth.instance.signOut();
+          await AppPreferences.setBool(Strings.isLloggedInPref, false);
+          if(mounted) {
+            SnackbarUtils.showSnackBar(context,TOASTSTYLE.INFO,"No user found. Please contact the Admin");
+          }
+          setState(() {
+            _isUserExist = anyUserExists;
+            _isLoading = false;
+          });
+          return; // Exit early
+        } else if (userDoc.exists && userDoc['isActive'] == false ) {
+          // User is deactivated
+          await FirebaseAuth.instance.signOut();
+          await AppPreferences.setBool(Strings.isLloggedInPref, false);
+          if(mounted) {
+            SnackbarUtils.showSnackBar(context,TOASTSTYLE.INFO,"Your account has been deactivated.");
+          }
+          setState(() {
+            _isUserExist = anyUserExists;
+            _isLoading = false;
+          });
+          return; // Exit early
+        } else {
+          // User is valid, update FCM token
+          await AuthRepository().saveUserToken(user.uid);
+        }
+      }
+
+      setState(() {
+        _isUserExist = anyUserExists;
+        _isLoading = false;
+      });
+    } catch (e) {
+      print("Error checking user existence: $e");
+      if(mounted) {
+        SnackbarUtils.showSnackBar(context,TOASTSTYLE.INFO,"Error: $e");
+      }
+      setState(() => _isLoading = false);
+    }
+  }
+ /* Future<void> _checkUserExistence() async {
+      try {
+        QuerySnapshot usersSnapshot = await FirebaseFirestore.instance.collection('users').get();
+        bool anyUserExists = usersSnapshot.docs.isNotEmpty;
+
+        User? user = FirebaseAuth.instance.currentUser;
+        print('user exist : $anyUserExists , $user');
+
+        setState(() {
+          if (!anyUserExists) {
+            _isUserExist = false; // No users → Show Registration Screen
+          } else{
+            _isUserExist = true;
+          }
+          _isLoading = false;
+        });
+      } catch (e) {
+        print("Error checking user existence: $e");
+        setState(() {
+          _isLoading = false;
+        });
+      }
+  }*/
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: _isLoading ? SplashScreen() : (_isUserExist ?
+      (_isUserLoggedIn() && FirebaseAuth.instance.currentUser != null  ? HomeScreen() :LoginScreen()) : RegisterScreen()),
+      routes: {
+        '/login': (context) => LoginScreen(),
+        '/register': (context) => RegisterScreen(),
+        '/change_password': (context) => ChangePasswordScreen(),
+        '/home': (context) => HomeScreen(),
+        '/users': (context) => UserListScreen(),
+        '/createorder': (context) => CreateOrderScreen(),
+      },
+      debugShowCheckedModeBanner: false,
     );
   }
-}
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
-    );
+  bool _isUserLoggedIn() {
+    return AppPreferences.getBool(Strings.isLloggedInPref);
   }
 }
