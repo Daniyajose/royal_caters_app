@@ -80,8 +80,15 @@ class _UserListScreenState extends State<UserListScreen> {
               return FutureBuilder<QuerySnapshot>(
                   future: FirebaseFirestore.instance.collection('pending_users').get(),
                   builder: (context, snapshot) {
-                    if (!snapshot.hasData)
-                      return Center(child: CircularProgressIndicator());
+                    if (!snapshot.hasData) {
+                      return Center(
+                        child: Image.asset(
+                          ImageAssetPath.spinning_loader,
+                          width: 40, // Adjust size as needed
+                          height: 40,
+                        ),
+                      );
+                    }
                     final pendingUsers = snapshot.data!.docs.map((doc) =>
                     {
                       'email': doc.id,

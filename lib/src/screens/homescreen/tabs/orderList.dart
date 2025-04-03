@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../utils/constants/asset_constant.dart';
 import '../../../bloc/order/order_bloc.dart';
 import '../../../bloc/order/order_event.dart';
 import '../../../bloc/order/order_state.dart';
 import '../widgets/orders_tab.dart';
+
 
 class OrderList extends StatelessWidget {
   final String status;
@@ -16,7 +18,13 @@ class OrderList extends StatelessWidget {
     return BlocBuilder<OrderBloc, OrderState>(
       builder: (context, state) {
         if (state is OrderLoading) {
-          return Center(child: CircularProgressIndicator());
+          return Center(
+            child: Image.asset(
+              ImageAssetPath.spinning_loader,
+              width: 40, // Adjust size as needed
+              height: 40,
+            ),
+          );
         } else if (state is OrderFailure) {
           return Center(child: Text("Error: ${state.error}"));
         } else if (state is OrderLoaded) {

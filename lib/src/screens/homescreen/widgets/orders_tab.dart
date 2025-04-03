@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:royalcaters/src/screens/order/create_order_screen.dart';
-import 'package:royalcaters/utils/constants/color_constants.dart';
+import 'package:intl/intl.dart';
+
+import '../../../../utils/constants/color_constants.dart';
 import '../../../bloc/order/order_bloc.dart';
 import '../../../bloc/order/order_event.dart';
 import '../../../model/order_model.dart';
-import 'package:intl/intl.dart';
+import '../../order/create_order_screen.dart';
 
 class OrderCard extends StatelessWidget {
   final OrderModel order;
@@ -21,17 +22,17 @@ class OrderCard extends StatelessWidget {
       onTap: ()  async {
 
         if(order.orderStatus == 'Upcoming') {
-          BuildContext currentContext = context; // Store the context reference
+         // Store the context reference
 
           final result = await Navigator.push(
-            currentContext, // Use stored context
+            context, // Use stored context
             MaterialPageRoute(
                 builder: (context) => CreateOrderScreen(order: order)),
           );
 
           if (result == true &&
-              currentContext.mounted) { // Check if the context is still mounted
-            currentContext.read<OrderBloc>().add(
+              context.mounted) { // Check if the context is still mounted
+            context.read<OrderBloc>().add(
                 FetchOrdersEvent()); // Safely refresh orders
           }
         }

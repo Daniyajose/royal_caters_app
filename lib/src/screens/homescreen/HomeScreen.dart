@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:royalcaters/src/screens/homescreen/tabs/orderList.dart';
 import 'package:royalcaters/src/screens/order/create_order_screen.dart';
 import 'package:royalcaters/utils/constants/color_constants.dart';
 
@@ -11,10 +12,7 @@ import '../../bloc/auth/auth_bloc.dart';
 import '../../bloc/order/order_bloc.dart';
 import '../../bloc/order/order_event.dart';
 import '../../model/order_model.dart';
-import '../order/tabs/canceled_tab.dart';
-import '../order/tabs/completed_tab.dart';
-import '../order/tabs/orderList.dart';
-import '../order/tabs/upcoming_tab.dart';
+
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -76,7 +74,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       }
     }
     await batch.commit();
-    context.read<OrderBloc>().add(FetchOrdersEvent());
+    if(mounted) {
+      context.read<OrderBloc>().add(FetchOrdersEvent());
+    }
   }
 
   Future<void> _checkIfAdmin() async {

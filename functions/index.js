@@ -77,54 +77,6 @@ exports.scheduleOrderNotification = functions.region('us-central1').firestore
 
     return null;
   });
-/*
-exports.checkPendingNotifications = functions.region('us-central1').pubsub
-  .schedule('every 5 minutes')
-  .onRun(async (context) => {
-    const now = new Date(); // UTC time
-    const db = admin.firestore();
-    const pendingSnapshot = await db
-      .collection('pending_notifications')
-      .where('status', '==', 'scheduled')
-      .get();
-
-    if (pendingSnapshot.empty) {
-      console.log('No notifications to send');
-      return null;
-    }
-
-    const usersSnapshot = await db.collection('users').get();
-    const tokens = usersSnapshot.docs
-      .map((doc) => doc.data().fcmToken)
-      .filter((token) => token);
-
-    if (tokens.length === 0) {
-      console.log('No user tokens found');
-      return null;
-    }
-
-    const promises = pendingSnapshot.docs.map(async (doc) => {
-      const data = doc.data();
-      const scheduledTime = new Date(data.scheduledTime); // Parse ISO 8601 string
-      if (scheduledTime > now) return; // Skip if still in the future
-
-      const payload = {
-        notification: { title: data.title, body: data.body },
-        data: { orderId: data.orderId },
-      };
-
-      try {
-        const response = await admin.messaging().sendToDevice(tokens, payload);
-        console.log('Notification sent for order:', { orderId: data.orderId, response });
-        await doc.ref.delete();
-      } catch (error) {
-        console.error('Error sending notification:', error);
-      }
-    });
-
-    await Promise.all(promises);
-    return null;
-  });*/
 
   exports.checkPendingNotifications = functions.region('us-central1').pubsub
     .schedule('every 15 minutes')
@@ -194,15 +146,17 @@ exports.updateOrderNotification = functions.region('us-central1').firestore
     const newData = change.after.data();
     const oldData = change.before.data();
 
-    // If status changes to canceled, remove from pending_notifications
+// If status changes to canceled, remove from both collections
     if (newData.status === 'canceled' && oldData.status !== 'canceled') {
-      const pendingDoc = await admin.firestore()
+      const pendingDocRef = admin.firestore()
         .collection('pending_notifications')
-        .doc(context.params.notificationId)
-        .get();
+        .doc(context.params.notificationId);
+      const pendingDoc = await pendingDocRef.get();
       if (pendingDoc.exists) {
-        await pendingDoc.ref.delete();
+        await pendingDocRef.delete();
       }
+      // Delete the canceled notification from scheduled_notifications
+      await change.after.ref.delete();
       return null;
     }
 

@@ -168,28 +168,32 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     }
   }
   Future<void> _cancelOrder() async {
+
+    bool confirmCancel = await _showCancelConfirmationDialog();
+    if (!confirmCancel) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
     setState(() {
       _isLoading = true;
     });
     if (widget.order != null) {
-      context.read<OrderBloc>().add(CancelOrderEvent(widget.order!.id));
-      await _cancelOrderReminder(widget.order!.id);
+      try {
+        context.read<OrderBloc>().add(CancelOrderEvent(widget.order!.id));
+        await _cancelOrderReminder(widget.order!.id);
+
+      } catch (e) {
+        print("Error while cancelling order: $e");
+        setState(() {
+          _isLoading = false; // Hide loader on error
+        });
+      }
     }
 
   }
 
- /* Future<void> _scheduleOrderReminder(OrderModel order, String isoDateTime) async {
-    final reminderDate = tz.TZDateTime.from(order.date.subtract(Duration(days: 7)), tz.local);
-    final formattedDate = DateFormat('dd MMMM yyyy').format(order.date);
-    await FirebaseFirestore.instance.collection('scheduled_notifications').add({
-      'orderId': order.id,
-      'title': 'Order Reminder',
-      'body': 'You have scheduled an order for "${order.clientName}" on $formattedDate',
-      'scheduledTime': reminderDate.toIso8601String(), // ISO 8601 with offset
-      'createdAt': FieldValue.serverTimestamp(),
-      'status': 'scheduled',
-    });
-  }*/
   Future<void> _scheduleOrderReminder(OrderModel order, String isoDateTime) async {
     final local = tz.local;
     final orderDate = tz.TZDateTime.from(order.date, local); // Order date in local timezone
@@ -204,7 +208,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         reminderDate.year,
         reminderDate.month,
         reminderDate.day,
-        7, // 7 AM
+        6, // 7 AM
         0,  // Minutes
         0,  // Seconds
       );
@@ -214,7 +218,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         await FirebaseFirestore.instance.collection('scheduled_notifications').add({
           'orderId': order.id,
           'title': 'Order Reminder',
-         // 'body': 'Order for "${order.clientName}" on $formattedDate is ${daysBefore == 0 ? "today" : "$daysBefore day${daysBefore == 1 ? "" : "s"} away"}',
           'body': 'You have scheduled an order for "${order.clientName}" on $formattedDate',
           'scheduledTime': reminderDateTime.toIso8601String(), // ISO 8601 with offset
           'createdAt': FieldValue.serverTimestamp(),
@@ -247,7 +250,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         reminderDate.year,
         reminderDate.month,
         reminderDate.day,
-        7, // 7 AM
+        6, // 7 AM
         0,
         0,
       );
@@ -256,7 +259,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         await notifications.add({
           'orderId': order.id,
           'title': 'Order Reminder',
-        //'body': 'Order for "${order.clientName}" on $formattedDate is ${daysBefore == 0 ? "today" : "$daysBefore day${daysBefore == 1 ? "" : "s"} away"}',
           'body': 'You have scheduled an order for "${order.clientName}" on $formattedDate',
           'scheduledTime': reminderDateTime.toIso8601String(),
           'createdAt': FieldValue.serverTimestamp(),
@@ -265,26 +267,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       }
     }
   }
-
- /* Future<void> _updateOrderReminder(OrderModel order, String isoDateTime) async {
-    final reminderDate = tz.TZDateTime.from(order.date.subtract(Duration(days:7)), tz.local);
-    final formattedDate = DateFormat('dd MMMM yyyy').format(order.date);
-    CollectionReference notifications = FirebaseFirestore.instance.collection('scheduled_notifications');
-    QuerySnapshot querySnapshot = await notifications.where('orderId', isEqualTo: order.id).get();
-
-    if (querySnapshot.docs.isNotEmpty) {
-      String docId = querySnapshot.docs.first.id;
-      await notifications.doc(docId).update({
-        'title': 'Order Reminder',
-        'body': 'You have scheduled an order for "${order.clientName}" on $formattedDate',
-        'scheduledTime': reminderDate.toIso8601String(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'status': 'scheduled',
-      });
-    } else {
-      await _scheduleOrderReminder(order, isoDateTime);
-    }
-  }*/
 
   Future<void> _cancelOrderReminder(String orderId) async {
     CollectionReference notifications =
@@ -300,8 +282,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       });
     }
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -686,4 +666,25 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     );
   }
 
+  Future<bool> _showCancelConfirmationDialog() async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Cancel Order"),
+          content: const Text("Are you sure you want to cancel this order? This action cannot be undone."),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false), // Dismiss without canceling
+              child: const Text("No"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true), // Proceed with cancellation
+              child: const Text("Yes"),
+            ),
+          ],
+        );
+      },
+    ) ?? false; // Return false if dialog is dismissed
+  }
 }
