@@ -5,7 +5,7 @@ class NotificationService {
   static final FlutterLocalNotificationsPlugin _notificationsPlugin =
   FlutterLocalNotificationsPlugin();
 
-  static void initialize() {
+  static Future<void> initialize() async {
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       'high_importance_channel', // id
       'High Importance Notifications', // name
@@ -13,12 +13,74 @@ class NotificationService {
       importance: Importance.high,
     );
 
-    _notificationsPlugin
+    // iOS initialization settings
+    const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+      onDidReceiveLocalNotification: null, // Deprecated in iOS 10+, handled by Firebase
+    );
+
+    // Combined initialization settings
+    const InitializationSettings initializationSettings = InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      iOS: iosSettings,
+    );
+
+   await _notificationsPlugin
         .resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
 
+// Request iOS permissions explicitly
+    await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false, // Set to true for temporary permissions without dialog
+    );
+
+    // Handle foreground notifications
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      RemoteNotification? notification = message.notification;
+      AndroidNotification? android = message.notification?.android;
+      AppleNotification? apple = message.notification?.apple;
+
+      if (notification != null) {
+        if (android != null) {
+          // Android-specific notification
+          _notificationsPlugin.show(
+            notification.hashCode,
+            notification.title,
+            notification.body,
+            NotificationDetails(
+              android: AndroidNotificationDetails(
+                channel.id,
+                channel.name,
+                channelDescription: channel.description,
+                icon: '@mipmap/ic_launcher',
+              ),
+            ),
+          );
+        } else if (apple != null) {
+          // iOS-specific notification
+          _notificationsPlugin.show(
+            notification.hashCode,
+            notification.title,
+            notification.body,
+            const NotificationDetails(
+              iOS: DarwinNotificationDetails(
+                presentAlert: true,
+                presentBadge: true,
+                presentSound: true,
+              ),
+            ),
+          );
+        }
+      }
+    });
+
+  /*  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       RemoteNotification? notification = message.notification;
       AndroidNotification? android = message.notification?.android;
 
@@ -37,6 +99,6 @@ class NotificationService {
           ),
         );
       }
-    });
+    });*/
   }
 }

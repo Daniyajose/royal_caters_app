@@ -24,6 +24,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   bool _obscureConfirmPassword = true;
 
   void _changePassword() async {
+    FocusScope.of(context).unfocus();
+
     if (_passwordController.text != _confirmPasswordController.text) {
       SnackbarUtils.showSnackBar(context,TOASTSTYLE.ERROR,'Passwords do not match!');
       return;

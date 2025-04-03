@@ -75,12 +75,23 @@ class AuthRepository {
   }
 
   Future<void> saveUserToken(String userId) async {
-    String? token = await FirebaseMessaging.instance.getToken();
-    if (token != null) {
-      await _firestore.collection('users').doc(userId).update({
-        'fcmToken': token,
-        'lastFcmUpdated': FieldValue.serverTimestamp(),
-      });
+    try {
+      String? token = await FirebaseMessaging.instance.getToken();
+      if (token != null) {
+        // Use set with merge to ensure the document is created if it doesn't exist
+        await _firestore.collection('users').doc(userId).set(
+          {
+            'fcmToken': token,
+            'lastFcmUpdated': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+      } else {
+        print("No FCM token available for user $userId");
+      }
+    } catch (e) {
+      print("Error saving FCM token for user $userId: $e");
+      throw e; // Propagate error to caller (e.g., main.dart or AuthBloc)
     }
   }
 

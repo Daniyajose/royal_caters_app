@@ -83,6 +83,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           inputFieldsWidget(),
                           RCPrimaryButton(
                             onPressed: () async {
+                              FocusScope.of(context).unfocus();
+
                               setState(() {
                                 _isLoading =  true;
                               });

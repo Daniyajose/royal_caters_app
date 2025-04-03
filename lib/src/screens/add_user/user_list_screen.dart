@@ -246,6 +246,7 @@ class _UserListScreenState extends State<UserListScreen> {
             ),
             GestureDetector(
               onTap: () {
+                FocusScope.of(context).unfocus();
                 if (!validateInputs(emailController,nameController)) {
                   return;
                 }

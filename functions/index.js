@@ -48,10 +48,33 @@ exports.scheduleOrderNotification = functions.region('us-central1').firestore
       return null;
     }
 
-    const payload = {
-      notification: { title, body },
-      data: { orderId },
-    };
+  // iOS and Android compatible payload
+      const payload = {
+        notification: {
+          title: title,
+          body: body,
+        },
+        data: {
+          orderId: orderId,
+        },
+        apns: {
+          payload: {
+            aps: {
+              alert: {
+                title: title,
+                body: body,
+              },
+              sound: 'default', // iOS sound
+              badge: 1, // Badge count for iOS
+            },
+          },
+        },
+        android: {
+          notification: {
+            sound: 'default', // Android sound
+          },
+        },
+      };
 
     if (timeDiffMs <= 0) {
       // Send immediately if scheduled time is now or past
@@ -115,9 +138,31 @@ exports.scheduleOrderNotification = functions.region('us-central1').firestore
         const scheduledTime = new Date(data.scheduledTime); // For logging
 
         const payload = {
-          notification: { title: data.title, body: data.body },
-          data: { orderId: data.orderId },
-        };
+                notification: {
+                  title: data.title,
+                  body: data.body,
+                },
+                data: {
+                  orderId: data.orderId,
+                },
+                apns: {
+                  payload: {
+                    aps: {
+                      alert: {
+                        title: data.title,
+                        body: data.body,
+                      },
+                      sound: 'default',
+                      badge: 1,
+                    },
+                  },
+                },
+                android: {
+                  notification: {
+                    sound: 'default',
+                  },
+                },
+              };
 
         promises.push(
           admin.messaging().sendToDevice(tokens, payload)

@@ -1,3 +1,4 @@
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:royalcaters/src/bloc/auth/auth_bloc.dart';
@@ -34,6 +35,10 @@ void main() async {
   await AppPreferences.init();
   tz.initializeTimeZones();
   await Firebase.initializeApp();
+  // Initialize Crashlytics
+  await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
+  // Pass all uncaught errors to Crashlytics
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   final authRepository = AuthRepository();
@@ -45,7 +50,20 @@ void main() async {
     alert: true,
     badge: true,
     sound: true,
+    provisional: false,
   );
+
+  User? user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    await authRepository.saveUserToken(user.uid); // Update token on app launch
+  }
+
+  FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+    User? currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null) {
+      await authRepository.saveUserToken(currentUser.uid);
+    }
+  });
 
   runApp(
     MultiBlocProvider(
