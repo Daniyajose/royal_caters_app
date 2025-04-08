@@ -11,6 +11,7 @@ import 'package:path/path.dart' as path;
 
 import '../../../utils/constants/color_constants.dart';
 import '../../../utils/constants/enums.dart';
+import '../../../utils/network_service.dart';
 import '../../../utils/widgets/toast.dart';
 import '../../bloc/order/order_bloc.dart';
 import '../../bloc/order/order_event.dart';
@@ -93,6 +94,12 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   }
 
   Future<void> _createOrder() async {
+    final networkAvailable =  await NetworkService().isConnected();
+    if (!networkAvailable) {
+      SnackbarUtils.showSnackBar(context,TOASTSTYLE.ERROR, "No Network connection!.. Please check your network..");
+      return;
+    }
+
     if (_formKey.currentState!.validate() && _dateController.text.isNotEmpty && _timeController.text.isNotEmpty) {
       setState(() {
         _isLoading = true;
@@ -168,6 +175,12 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     }
   }
   Future<void> _cancelOrder() async {
+
+    final networkAvailable =  await NetworkService().isConnected();
+    if (!networkAvailable) {
+      SnackbarUtils.showSnackBar(context,TOASTSTYLE.ERROR, "No Network connection!.. Please check your network..");
+      return;
+    }
 
     bool confirmCancel = await _showCancelConfirmationDialog();
     if (!confirmCancel) return;
