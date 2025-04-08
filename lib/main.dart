@@ -2,7 +2,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:royalcaters/src/RetryScreen.dart';
+import 'package:royalcaters/src/screens/RetryScreen.dart';
 import 'package:royalcaters/src/bloc/auth/auth_bloc.dart';
 import 'package:royalcaters/src/bloc/order/order_bloc.dart';
 import 'package:royalcaters/src/bloc/user/user_bloc.dart';
