@@ -13,7 +13,6 @@ import '../../bloc/order/order_bloc.dart';
 import '../../bloc/order/order_event.dart';
 import '../../model/order_model.dart';
 
-
 class HomeScreen extends StatefulWidget {
   @override
   _HomeScreenState createState() => _HomeScreenState();
@@ -26,67 +25,71 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _tabController.index = 1;
+    _initializeTabController();
     _checkIfAdmin();
     _fetchOrders();
-
-    // Listen for tab changes and refresh orders if needed
-    _tabController.addListener(() {
-      if (_tabController.indexIsChanging) {
-        _fetchOrders();
-      }
-    });
-    _startPeriodicCheck();
+    _startUserActiveMonitor();
   }
 
-  Future<void> _startPeriodicCheck() async {
+  void _initializeTabController() {
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.index = 1;
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) _fetchOrders();
+    });
+  }
+
+  Future<void> _startUserActiveMonitor() async {
     while (mounted) {
-      await Future.delayed(Duration(minutes: 1));
-      User? user = FirebaseAuth.instance.currentUser;
+      await Future.delayed(const Duration(minutes: 1));
+      final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-        if (!userDoc.exists || (userDoc.exists && userDoc['isActive'] == false)) {
-          await FirebaseAuth.instance.signOut();
-          await AppPreferences.setBool(Strings.isLloggedInPref, false);
-          Navigator.pushReplacementNamed(context, '/login');
-          break; // Exit loop after logout
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (!doc.exists || (doc['isActive'] == false)) {
+          await _logoutAndRedirect();
+          break;
         }
       }
     }
   }
 
+  Future<void> _logoutAndRedirect() async {
+    await FirebaseAuth.instance.signOut();
+    await AppPreferences.setBool(Strings.isLloggedInPref, false);
+    if (mounted) Navigator.pushReplacementNamed(context, '/login');
+  }
 
   Future<void> _fetchOrders() async {
-    final currentDate = DateTime.now();
+    final now = DateTime.now();
     final ordersSnapshot = await FirebaseFirestore.instance.collection('orders').get();
+
     final orders = ordersSnapshot.docs.map((doc) {
       return OrderModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
     }).toList();
 
-    WriteBatch batch = FirebaseFirestore.instance.batch();
+    final batch = FirebaseFirestore.instance.batch();
+
     for (var order in orders) {
-      if (order.orderStatus == "Upcoming" && order.date.isBefore(currentDate)) {
+      if (order.orderStatus == "Upcoming" && order.date.isBefore(now)) {
         batch.update(
           FirebaseFirestore.instance.collection('orders').doc(order.id),
           {'orderStatus': 'Completed'},
         );
       }
     }
+
     await batch.commit();
-    if(mounted) {
-      context.read<OrderBloc>().add(FetchOrdersEvent());
-    }
+    if (mounted) context.read<OrderBloc>().add(FetchOrdersEvent());
   }
 
   Future<void> _checkIfAdmin() async {
-    User? user = FirebaseAuth.instance.currentUser;
+    final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-
-      if (userDoc.exists) {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (doc.exists) {
         setState(() {
-          _isAdmin = userDoc['role'] == 'admin' || userDoc['role'] == 'super_admin';
+          final role = doc['role'];
+          _isAdmin = role == 'admin' || role == 'super_admin';
         });
       }
     }
@@ -104,22 +107,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       backgroundColor: white,
       appBar: AppBar(
         backgroundColor: primaryColor,
-        title: Text('Orders', style: TextStyle(color: white)),
+        title: const Text('Orders', style: TextStyle(color: white)),
         actions: [
           if (_isAdmin)
             IconButton(
-              icon: Icon(Icons.account_circle_sharp, color: white),
-              onPressed: () {
-                Navigator.pushNamed(context, '/users');
-              },
+              icon: const Icon(Icons.account_circle_sharp, color: white),
+              onPressed: () => Navigator.pushNamed(context, '/users'),
             ),
           IconButton(
-            icon: Icon(Icons.logout, color: white),
-            onPressed: () async {
-              BlocProvider.of<AuthBloc>(context).add(LogoutEvent());
-              await AppPreferences.setBool(Strings.isLloggedInPref, false);
-              Navigator.pushReplacementNamed(context, '/login');
-            },
+            icon: const Icon(Icons.logout, color: white),
+            onPressed: () async => await _logoutAndRedirect(),
           ),
         ],
         bottom: TabBar(
@@ -127,8 +124,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           indicatorColor: white,
           labelColor: white,
           unselectedLabelColor: Colors.grey[300],
-          labelStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: 0.5),
-          indicatorSize: TabBarIndicatorSize.tab,
+          labelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w400),
           indicatorWeight: 3.0,
           tabs: const [
             Tab(text: "Completed"),
@@ -139,10 +135,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-         /* CompletedTab(),
-          UpcomingTab(),
-          CanceledTab(),*/
+        children: const [
           OrderList(status: "Completed"),
           OrderList(status: "Upcoming"),
           OrderList(status: "Canceled"),
@@ -150,18 +143,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: primaryColor,
-        onPressed: ()  async {
+        onPressed: () async {
           final result = await Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => CreateOrderScreen()),
+            MaterialPageRoute(builder: (_) => const CreateOrderScreen()),
           );
-
           if (result == true) {
             _tabController.index = 1;
-            _fetchOrders(); // Reload orders when coming back
+            _fetchOrders();
           }
         },
-        child: Icon(Icons.add, color: white),
+        child: const Icon(Icons.add, color: white),
       ),
     );
   }

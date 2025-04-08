@@ -22,21 +22,22 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 class CreateOrderScreen extends StatefulWidget {
-   const CreateOrderScreen({super.key, this.order});
-   final OrderModel? order;
+  const CreateOrderScreen({super.key, this.order});
+  final OrderModel? order;
+
   @override
-  _CreateOrderScreenState createState() => _CreateOrderScreenState();
+  State<CreateOrderScreen> createState() => _CreateOrderScreenState();
 }
 
 class _CreateOrderScreenState extends State<CreateOrderScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _clientNameController = TextEditingController();
-  final TextEditingController _clientLocationController = TextEditingController();
-  final TextEditingController _clientContactController = TextEditingController();
-  final TextEditingController _orderDetailsController = TextEditingController();
-  final TextEditingController _driverNameController = TextEditingController();
-  TextEditingController _dateController = TextEditingController();
-  TextEditingController _timeController = TextEditingController();
+  final _clientNameController = TextEditingController();
+  final _clientLocationController = TextEditingController();
+  final _clientContactController = TextEditingController();
+  final _orderDetailsController = TextEditingController();
+  final _driverNameController = TextEditingController();
+  final _dateController = TextEditingController();
+  final _timeController = TextEditingController();
 
   DateTime? _selectedDate;
   String _orderType = 'Takeaway';
@@ -47,164 +48,125 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   @override
   void initState() {
     super.initState();
+    _populateFieldsForUpdate();
+  }
 
+  void _populateFieldsForUpdate() {
     if (widget.order != null) {
-      // Populate fields for update
-      _clientNameController.text = widget.order!.clientName;
-      _clientLocationController.text = widget.order!.clientLocation;
-      _clientContactController.text = widget.order!.clientContact;
-      _orderDetailsController.text = widget.order!.orderDetails;
-      _driverNameController.text = widget.order!.driverName;
-      _dateController.text = DateFormat('dd MMMM yyyy').format(widget.order!.date); // Display format
-      _timeController.text = DateFormat('HH:mm:ss').format(widget.order!.time); // 24-hour format
-      _orderType = widget.order!.orderType;
-      _orderStatus = widget.order!.orderStatus;
-      _images = widget.order!.images;
+      final order = widget.order!;
+      _clientNameController.text = order.clientName;
+      _clientLocationController.text = order.clientLocation;
+      _clientContactController.text = order.clientContact;
+      _orderDetailsController.text = order.orderDetails;
+      _driverNameController.text = order.driverName;
+      _dateController.text = DateFormat('dd MMMM yyyy').format(order.date);
+      _timeController.text = DateFormat('HH:mm:ss').format(order.time);
+      _orderType = order.orderType;
+      _orderStatus = order.orderStatus;
+      _images = order.images;
     }
   }
 
-
   Future<void> _pickImages() async {
-    final picker = ImagePicker();
-    final pickedFiles = await picker.pickMultiImage();
-
+    final pickedFiles = await ImagePicker().pickMultiImage();
     if (pickedFiles != null && pickedFiles.isNotEmpty) {
-      for (var pickedFile in pickedFiles) {
-        setState(() {
-          _images.add(pickedFile.path);
-        });
-      }
+      setState(() {
+        _images.addAll(pickedFiles.map((file) => file.path));
+      });
     }
   }
 
   Future<String> _uploadImage(File imageFile) async {
     try {
-      String originalFileName = path.basenameWithoutExtension(imageFile.path);
-      String fileExtension = path.extension(imageFile.path);
-      // Create a unique file name using original name and current timestamp
-      String uniqueFileName = "orders/${originalFileName}_${DateTime.now().millisecondsSinceEpoch}$fileExtension";
-      Reference storageRef = FirebaseStorage.instance.ref().child(uniqueFileName);
-      UploadTask uploadTask = storageRef.putFile(imageFile);
-      TaskSnapshot snapshot = await uploadTask;
+      final fileName = path.basenameWithoutExtension(imageFile.path);
+      final ext = path.extension(imageFile.path);
+      final uniqueName = 'orders/${fileName}_${DateTime.now().millisecondsSinceEpoch}$ext';
+      final storageRef = FirebaseStorage.instance.ref().child(uniqueName);
+      final snapshot = await storageRef.putFile(imageFile);
       return await snapshot.ref.getDownloadURL();
     } catch (e) {
-      print("Error uploading image: $e");
+      print("Upload error: $e");
       return "";
     }
   }
 
-  Future<void> _createOrder() async {
-    final networkAvailable =  await NetworkService().isConnected();
-    if (!networkAvailable) {
-      SnackbarUtils.showSnackBar(context,TOASTSTYLE.ERROR, "No Network connection!.. Please check your network..");
+  Future<void> _createOrUpdateOrder() async {
+    final isConnected = await NetworkService().isConnected();
+    if (!isConnected) {
+      SnackbarUtils.showSnackBar(context, TOASTSTYLE.ERROR, "No network connection.");
       return;
     }
 
-    if (_formKey.currentState!.validate() && _dateController.text.isNotEmpty && _timeController.text.isNotEmpty) {
-      setState(() {
-        _isLoading = true;
-      });
-      try {
-        // Parse date and time in local time zone
-        final dateFormat = DateFormat('dd MMMM yyyy');
-        final timeFormat = DateFormat('HH:mm:ss');
-        final selectedDate = dateFormat.parse(_dateController.text);
-        final selectedTime = timeFormat.parse(_timeController.text);
-        final combinedDateTime = DateTime(
-          selectedDate.year,
-          selectedDate.month,
-          selectedDate.day,
-          selectedTime.hour,
-          selectedTime.minute,
-          selectedTime.second,
-        );
+    if (!_formKey.currentState!.validate() || _dateController.text.isEmpty || _timeController.text.isEmpty) {
+      SnackbarUtils.showSnackBar(context, TOASTSTYLE.ERROR, "Validation failed or missing date/time.");
+      return;
+    }
 
-        // Convert to UTC with local time zone offset
-        final local = tz.local;
-        final tzDateTime = tz.TZDateTime.from(combinedDateTime, local);
-        final isoDateTime = tzDateTime.toIso8601String(); // e.g., "2025-03-31T10:00:00+05:30"
+    setState(() => _isLoading = true);
 
-        List<String> imageUrls = [];
-        // Upload only local file images. If image already starts with "http", it’s a URL.
-        for (var image in _images) {
-          if (image.startsWith("http")) {
-            imageUrls.add(image);
-          } else {
-            String url = await _uploadImage(File(image));
-            if (url.isNotEmpty) imageUrls.add(url);
-          }
+    try {
+      final date = DateFormat('dd MMMM yyyy').parse(_dateController.text);
+      final time = DateFormat('HH:mm:ss').parse(_timeController.text);
+      final localDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute, time.second);
+      final tzDateTime = tz.TZDateTime.from(localDateTime, tz.local);
+      final isoDateTime = tzDateTime.toIso8601String();
+
+      final imageUrls = await Future.wait(_images.map((image) async {
+        return image.startsWith("http") ? image : await _uploadImage(File(image));
+      }));
+
+      final order = OrderModel(
+        id: widget.order?.id ?? Uuid().v4(),
+        clientName: _clientNameController.text,
+        clientLocation: _clientLocationController.text,
+        clientContact: _clientContactController.text,
+        date: localDateTime,
+        time: localDateTime,
+        orderDetails: _orderDetailsController.text,
+        orderType: _orderType,
+        driverName: _driverNameController.text,
+        images: imageUrls,
+        orderStatus: _orderStatus,
+      );
+
+      final bloc = context.read<OrderBloc>();
+
+      if (widget.order == null) {
+        bloc.add(CreateOrderEvent(order));
+        await _scheduleOrderReminder(order, isoDateTime);
+      } else {
+        bloc.add(UpdateOrderEvent(order));
+        if (widget.order?.date != date) {
+          await _updateOrderReminder(order, isoDateTime);
         }
-        final order = OrderModel(
-          id: widget.order?.id ?? Uuid().v4(),
-          clientName: _clientNameController.text,
-          clientLocation: _clientLocationController.text,
-          clientContact: _clientContactController.text,
-          date: combinedDateTime, // Local time for display
-          time: combinedDateTime, // Local time for display
-          orderDetails: _orderDetailsController.text,
-          orderType: _orderType,
-          driverName: _driverNameController.text,
-          images: imageUrls,
-          orderStatus: _orderStatus,
-        );
-        if (widget.order == null) {
-          // Create new order
-          if(mounted) {
-            context.read<OrderBloc>().add(CreateOrderEvent(order));
-          }
-          await _scheduleOrderReminder(order,isoDateTime);
-
-        } else {
-          if(mounted) {
-            context.read<OrderBloc>().add(UpdateOrderEvent(order));
-          }
-          if(widget.order?.date != selectedDate) {
-            await _updateOrderReminder(order,isoDateTime);
-          }
-        }
-
-      } catch (e) {
-        print("Error while creating order: $e");
-        setState(() {
-          _isLoading = false; // Hide loader on error
-        });
       }
-    } else {
-
-      SnackbarUtils.showSnackBar(context,TOASTSTYLE.ERROR, "Validation failed or date/time not selected.");
+    } catch (e) {
+      print("Order creation error: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
-  Future<void> _cancelOrder() async {
 
-    final networkAvailable =  await NetworkService().isConnected();
-    if (!networkAvailable) {
-      SnackbarUtils.showSnackBar(context,TOASTSTYLE.ERROR, "No Network connection!.. Please check your network..");
+  Future<void> _cancelOrder() async {
+    final isConnected = await NetworkService().isConnected();
+    if (!isConnected) {
+      SnackbarUtils.showSnackBar(context, TOASTSTYLE.ERROR, "No network connection.");
       return;
     }
 
-    bool confirmCancel = await _showCancelConfirmationDialog();
-    if (!confirmCancel) return;
+    final confirm = await _showCancelConfirmationDialog();
+    if (!confirm || widget.order == null) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
-    setState(() {
-      _isLoading = true;
-    });
-    if (widget.order != null) {
-      try {
-        context.read<OrderBloc>().add(CancelOrderEvent(widget.order!.id));
-        await _cancelOrderReminder(widget.order!.id);
-
-      } catch (e) {
-        print("Error while cancelling order: $e");
-        setState(() {
-          _isLoading = false; // Hide loader on error
-        });
-      }
+    try {
+      context.read<OrderBloc>().add(CancelOrderEvent(widget.order!.id));
+      await _cancelOrderReminder(widget.order!.id);
+    } catch (e) {
+      print("Order cancel error: $e");
+    } finally {
+      setState(() => _isLoading = false);
     }
-
   }
 
   Future<void> _scheduleOrderReminder(OrderModel order, String isoDateTime) async {
@@ -300,128 +262,117 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   Widget build(BuildContext context) {
     return BlocListener<OrderBloc, OrderState>(
       listener: (context, state) {
-        if (state is OrderLoaded) {
-
-          setState(() {
-            _isLoading = false; // Hide loader on error
-          });
-          Navigator.pop(context, true); // Close screen and refresh HomeScreen
-        } else if (state is OrderFailure) {
-          setState(() {
-            _isLoading = false; // Hide loader on error
-          });
-          SnackbarUtils.showSnackBar(context,TOASTSTYLE.ERROR, state.error);
+        if (state is OrderLoaded || state is OrderFailure) {
+          setState(() => _isLoading = false);
+          if (state is OrderLoaded) Navigator.pop(context, true);
+          if (state is OrderFailure) SnackbarUtils.showSnackBar(context, TOASTSTYLE.ERROR, state.error);
         }
       },
       child: Stack(
         children: [
           Scaffold(
-          backgroundColor: white,
-          appBar: AppBar(
-            backgroundColor: primaryColor,
-            title: Text(widget.order == null ? 'Create Order' : 'Edit Order', style: TextStyle(color: white)),
-            leading: IconButton( // Adds the back button manually
-              icon: Icon(Icons.arrow_back, color: white),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-          body:
-          Form(
+            backgroundColor: white,
+            appBar: _buildAppBar(),
+            body: Form(
               key: _formKey,
               child: Column(
                 children: [
                   Expanded(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: SingleChildScrollView(
                         child: Column(
                           children: [
                             inputFieldsWidget(),
                             _imagePickerWidget(),
-                            SizedBox(height: 30,)
+                            const SizedBox(height: 30),
                           ],
                         ),
                       ),
                     ),
                   ),
-                  // Create Order button at the bottom
-                  if (widget.order == null)
-                  SizedBox(
-                    width: double.infinity, // Make button full width
-                    child: ElevatedButton(
-                      onPressed: _createOrder,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor, // Background color
-                        textStyle: TextStyle(color: white, fontSize: 18, fontWeight: FontWeight.bold) ,// Text color
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(0), // Rounded corners
-                        ),
-
-                        padding: EdgeInsets.symmetric(vertical: 16), // Vertical padding
-                        elevation: 5, // Shadow effect
-                      ),
-                      child: Text(
-                        "CREATE ORDER",
-                        style: TextStyle(
-                          fontSize: 18,
-                          letterSpacing: 1.0,
-                          color: white,// Text size
-                          fontWeight: FontWeight.normal, // Bold text
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (widget.order != null)
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Cancel Order Button
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _cancelOrder,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              child: Text("CANCEL ORDER", style: TextStyle(fontSize: 15, color: Colors.white)),
-                            ),
-                          ),
-                          SizedBox(width: 16), // Space between buttons
-                          // Update Order Button
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _createOrder,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryColor,
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              child: Text("UPDATE ORDER", style: TextStyle(fontSize: 15, color: Colors.white)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
+                  _buildActionButtons(),
                 ],
               ),
             ),
-         // ),
-        ),
-
-          if (_isLoading) // Show loader on top when loading
+          ),
+          if (_isLoading)
             Positioned.fill(
               child: Container(
-                color: Colors.black.withOpacity(0.5), // Semi-transparent overlay
+                color: Colors.black45,
                 child: Center(
-                  child: Image.asset(ImageAssetPath.spinning_loader,width: 40,height: 40,),
+                  child: Image.asset(ImageAssetPath.spinning_loader, width: 40, height: 40),
                 ),
               ),
             ),
-      ]
+        ],
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildAppBar() {
+    return AppBar(
+      backgroundColor: primaryColor,
+      title: Text(widget.order == null ? 'Create Order' : 'Edit Order', style: TextStyle(color: white)),
+      leading: IconButton(
+        icon: Icon(Icons.arrow_back, color: white),
+        onPressed: () => Navigator.pop(context),
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    if (widget.order == null) {
+      return _buildCreateButton();
+    } else {
+      return _buildUpdateAndCancelButtons();
+    }
+  }
+
+  Widget _buildCreateButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _createOrUpdateOrder,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryColor,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        ),
+        child: Text("CREATE ORDER", style: TextStyle(fontSize: 18, color: white)),
+      ),
+    );
+  }
+
+  Widget _buildUpdateAndCancelButtons() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton(
+              onPressed: _cancelOrder,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text("CANCEL ORDER", style: TextStyle(fontSize: 15, color: Colors.white)),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: _createOrUpdateOrder,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text("UPDATE ORDER", style: TextStyle(fontSize: 15, color: Colors.white)),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -619,8 +570,8 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         // Image Grid + Add Button
         GridView.builder(
           shrinkWrap: true,
-          physics: NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3, // 3 images per row
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,

@@ -22,7 +22,7 @@ import 'package:royalcaters/utils/constants/enums.dart';
 import 'package:royalcaters/utils/pref/preference_data.dart';
 import 'package:royalcaters/utils/widgets/toast.dart';
 import 'package:royalcaters/src/screens/splashscreen.dart';
-import 'package:royalcaters/src/screens/RetryScreen.dart';
+import 'package:royalcaters/src/screens/network_error_screen.dart';
 import 'package:royalcaters/src/screens/auth/login_screen.dart';
 import 'package:royalcaters/src/screens/auth/registration_screen.dart';
 import 'package:royalcaters/src/screens/auth/change_password_screen.dart';

@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../utils/constants/asset_constant.dart';
 import '../../../bloc/order/order_bloc.dart';
 import '../../../bloc/order/order_state.dart';
-import '../widgets/orders_tab.dart';
+import '../widgets/order_card.dart';
 
 
 class CanceledTab extends StatelessWidget {

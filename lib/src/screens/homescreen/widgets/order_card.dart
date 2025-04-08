@@ -54,7 +54,7 @@ class OrderCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       '${order.clientName}',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
