@@ -218,7 +218,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         await FirebaseFirestore.instance.collection('scheduled_notifications').add({
           'orderId': order.id,
           'title': 'Order Reminder',
-          'body': 'You have scheduled an order for "${order.clientName}" on $formattedDate',
+          'body': 'You have scheduled an order for ${order.clientName} on $formattedDate',
           'scheduledTime': reminderDateTime.toIso8601String(), // ISO 8601 with offset
           'createdAt': FieldValue.serverTimestamp(),
           'status': 'scheduled',
@@ -259,7 +259,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         await notifications.add({
           'orderId': order.id,
           'title': 'Order Reminder',
-          'body': 'You have scheduled an order for "${order.clientName}" on $formattedDate',
+          'body': 'You have scheduled an order for ${order.clientName} on $formattedDate',
           'scheduledTime': reminderDateTime.toIso8601String(),
           'createdAt': FieldValue.serverTimestamp(),
           'status': 'scheduled',

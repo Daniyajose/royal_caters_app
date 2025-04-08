@@ -11,6 +11,7 @@ class NotificationService {
       'High Importance Notifications', // name
       description: 'This channel is used for important notifications.',
       importance: Importance.high,
+
     );
 
     // iOS initialization settings
@@ -23,9 +24,17 @@ class NotificationService {
 
     // Combined initialization settings
     const InitializationSettings initializationSettings = InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      android: AndroidInitializationSettings('ic_notification'),
       iOS: iosSettings,
     );
+
+    // Initialize the plugin
+    await _notificationsPlugin.initialize(
+    initializationSettings,
+    onDidReceiveNotificationResponse: (NotificationResponse response) async {
+    // Handle notification tap (optional)
+    print('Notification tapped: ${response.payload}');
+    },);
 
    await _notificationsPlugin
         .resolvePlatformSpecificImplementation<
@@ -58,7 +67,8 @@ class NotificationService {
                 channel.id,
                 channel.name,
                 channelDescription: channel.description,
-                icon: '@mipmap/ic_launcher',
+                icon: 'ic_notification',
+
               ),
             ),
           );

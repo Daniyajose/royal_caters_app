@@ -24,6 +24,16 @@ const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
 
 admin.initializeApp();
+
+exports.deleteUserAuth = functions.https.onCall(async (data, context) => {
+  const userId = data.userId;
+  try {
+    await admin.auth().deleteUser(userId);
+    return { success: true };
+  } catch (error) {
+    throw new functions.https.HttpsError('internal', 'Failed to delete auth record', error);
+  }
+});
 exports.scheduleOrderNotification = functions.region('us-central1').firestore
   .document('scheduled_notifications/{notificationId}')
   .onCreate(async (snap, context) => {

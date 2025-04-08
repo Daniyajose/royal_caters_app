@@ -28,8 +28,13 @@ class OrderList extends StatelessWidget {
         } else if (state is OrderFailure) {
           return Center(child: Text("Error: ${state.error}"));
         } else if (state is OrderLoaded) {
-          final filteredOrders =
-          state.orders.where((order) => order.orderStatus == status).toList();
+         /* final filteredOrders =
+          state.orders.where((order) => order.orderStatus == status).toList();*/
+
+          final filteredOrders = state.orders
+              .where((order) => order.orderStatus == status)
+              .toList()
+            ..sort((a, b) => b.date.compareTo(b.date));
 
           if (filteredOrders.isEmpty) {
             return Center(child: Text("No $status orders."));
@@ -47,7 +52,7 @@ class OrderList extends StatelessWidget {
             ),
           );
         }
-        return Center(child: Text("No orders available."));
+        return const Center(child: Text("No orders available."));
       },
     );
   }

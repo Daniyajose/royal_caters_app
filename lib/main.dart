@@ -1,6 +1,8 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:royalcaters/src/RetryScreen.dart';
 import 'package:royalcaters/src/bloc/auth/auth_bloc.dart';
 import 'package:royalcaters/src/bloc/order/order_bloc.dart';
 import 'package:royalcaters/src/bloc/user/user_bloc.dart';
@@ -19,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:royalcaters/src/screens/homescreen/HomeScreen.dart';
 import 'package:royalcaters/src/screens/order/create_order_screen.dart';
 import 'package:royalcaters/src/screens/splashscreen.dart';
+import 'package:royalcaters/utils/constants/color_constants.dart';
 import 'package:royalcaters/utils/constants/enums.dart';
 import 'package:royalcaters/utils/constants/string_constant.dart';
 import 'package:royalcaters/utils/pref/preference_data.dart';
@@ -91,6 +94,8 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   bool _isUserExist = false;
   bool _isLoading = true;
+  bool _hasNetworkError = false;
+
 
   @override
   void initState() {
@@ -101,8 +106,29 @@ class _MyAppState extends State<MyApp> {
   Future<void> _startSplashScreen() async {
     await Future.delayed(const Duration(seconds: 2)); // Wait for 2 seconds
     await _checkUserExistence();
+   // await _checkConnectivityAndUser();
    // setState(() {});
   }
+
+
+  Future<void> _checkConnectivityAndUser() async {
+    final connectivityResult = await Connectivity().checkConnectivity();
+
+    if (connectivityResult == ConnectivityResult.none) {
+      if (mounted) {
+        setState(() {
+          _hasNetworkError = true;
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    // Now safe to call Firestore
+    await _checkUserExistence();
+  }
+
+
 
   Future<void> _checkUserExistence() async {
     try {
@@ -148,12 +174,16 @@ class _MyAppState extends State<MyApp> {
       });
     } catch (e) {
       print("Error checking user existence: $e");
-      if(mounted) {
-        SnackbarUtils.showSnackBar(context,TOASTSTYLE.INFO,"Error: $e");
+      if (mounted) {
+        setState(() {
+          _hasNetworkError = true;
+          _isLoading = false;
+        });
+        SnackbarUtils.showSnackBar(context, TOASTSTYLE.ERROR, "Please check your internet and try again.");
       }
-      setState(() => _isLoading = false);
     }
   }
+
  /* Future<void> _checkUserExistence() async {
       try {
         QuerySnapshot usersSnapshot = await FirebaseFirestore.instance.collection('users').get();
@@ -181,7 +211,14 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: _isLoading ? SplashScreen() : (_isUserExist ?
+      title: 'Royal Caters',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: primaryColor),
+        fontFamily: "Roboto", //"Poppins"
+        useMaterial3: true,
+      ),
+      home:
+      _isLoading ? SplashScreen() : (_isUserExist ?
       (_isUserLoggedIn() && FirebaseAuth.instance.currentUser != null  ? HomeScreen() :LoginScreen()) : RegisterScreen()),
       routes: {
         '/login': (context) => LoginScreen(),

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../model/user_model.dart';
 
@@ -61,7 +62,8 @@ class UserRepository {
         String userRole = userDoc['role'];
         print('roles pending $userRole , $requesterRole , $isPending');
         if (requesterRole == 'super_admin' || (requesterRole == 'admin' && userRole == 'staff')) {
-          await _firestore.collection('users').doc(userId).update({'isActive': false});
+          await _firestore.collection('users').doc(userId).delete(); // Hard delete
+          await _callDeleteAuthFunction(userId);
           if (_auth.currentUser?.uid == userId) await _auth.signOut();
         } else {
           throw Exception("Permission denied.");
@@ -70,5 +72,10 @@ class UserRepository {
     } catch (e) {
       throw Exception("Failed to delete user: $e");
     }
+  }
+
+  Future<void> _callDeleteAuthFunction(String userId) async {
+    final callable = FirebaseFunctions.instance.httpsCallable('deleteUserAuth');
+    await callable.call({'userId': userId});
   }
 }
