@@ -10,6 +10,7 @@ class Strings {
   static const name = "Enter Name";
   static const verifyAccount = "Verify Account";
   static const changePassword = "Change Password";
+  static const currentPassword = "Current Password";
   static const newPassword = "New Password";
   static const confirmPassword = "Confirm Password";
   static const updatePassword = "Update Password";

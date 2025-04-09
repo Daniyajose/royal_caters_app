@@ -201,17 +201,24 @@ exports.updateOrderNotification = functions.region('us-central1').firestore
     const newData = change.after.data();
     const oldData = change.before.data();
 
-// If status changes to canceled, remove from both collections
+// If status changes to canceled, clean up related notifications
     if (newData.status === 'canceled' && oldData.status !== 'canceled') {
-      const pendingDocRef = admin.firestore()
-        .collection('pending_notifications')
-        .doc(context.params.notificationId);
-      const pendingDoc = await pendingDocRef.get();
-      if (pendingDoc.exists) {
-        await pendingDocRef.delete();
-      }
+      const orderId = newData.orderId;
+
       // Delete the canceled notification from scheduled_notifications
       await change.after.ref.delete();
+
+      // Check and delete all matching pending notifications for this orderId
+      const pendingQuery = await admin.firestore()
+        .collection('pending_notifications')
+        .where('orderId', '==', orderId)
+        .get();
+
+      if (!pendingQuery.empty) {
+        const deletePromises = pendingQuery.docs.map((doc) => doc.ref.delete());
+        await Promise.all(deletePromises);
+      }
+
       return null;
     }
 

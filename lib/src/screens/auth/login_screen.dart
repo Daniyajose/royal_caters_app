@@ -48,7 +48,14 @@ class _LoginScreenState extends State<LoginScreen> {
       resizeToAvoidBottomInset: true,
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) async {
-          if (state is AuthAuthenticated) {
+          if (state is AuthLoading) {
+            setState(() {
+              _isLoading = true; // Show loader when authentication starts
+            });
+          } else if (state is AuthAuthenticated) {
+            setState(() {
+              _isLoading = false; // Hide loader when authenticated
+            });
             if (state.isFirstLogin) {
               Navigator.pushReplacementNamed(context, '/change_password');
             } else {
@@ -56,6 +63,9 @@ class _LoginScreenState extends State<LoginScreen> {
               Navigator.pushReplacementNamed(context, '/home');
             }
           } else if (state is AuthError) {
+            setState(() {
+              _isLoading = false; // Hide loader on error
+            });
             SnackbarUtils.showSnackBar(context,TOASTSTYLE.ERROR,state.message);
           }
         },
@@ -81,58 +91,48 @@ class _LoginScreenState extends State<LoginScreen> {
                           Image.asset(ImageAssetPath.royalCatersLogo, height: 160,width: 160,),
                           const SizedBox(height: 30),
                           inputFieldsWidget(),
-                          RCPrimaryButton(
-                            onPressed: () async {
-                              FocusScope.of(context).unfocus();
+                          Opacity(
+                            opacity: _isLoading ? 0.5 : 1.0,
+                            child: RCPrimaryButton(
+                              onPressed: () async {
+                                _isLoading
+                                  ? null // Disable button press when loading
+                                  :
+                                FocusScope.of(context).unfocus();
 
-                              setState(() {
-                                _isLoading =  true;
-                              });
+                                if (!validateInputs()) {
+                                  return;
+                                }
+                                // Check if the user exists in 'users' or 'pending_users'
+                                final isExisting = await _isExistingUser(emailController.text);
+                                final isPending = await _isPendingUser(emailController.text);
 
-                              if (!validateInputs()) {
-                                setState(() {
-                                  _isLoading = false;
-                                });
-                                return;
-                              }
-                              // Check if the user exists in 'users' or 'pending_users'
-                              final isExisting = await _isExistingUser(emailController.text);
-                              final isPending = await _isPendingUser(emailController.text);
-
-                              if (isExisting) {
-                                // User exists in 'users' collection, attempt login
-                               if(context.mounted) {
-                                 BlocProvider.of<AuthBloc>(context).add(LoginEvent(emailController.text, passwordController.text),
-                                );
-                               }
-                               setState(() {
-                                 _isLoading = false;
-                               });
-                              } else if (isPending) {
-                                // User exists in 'pending_users', attempt registration
-                                if(context.mounted) {
-                                  BlocProvider.of<AuthBloc>(context).add(
-                                    RegisterPendingEvent(
-                                      emailController.text,
-                                      passwordController.text,
-                                      '',
-                                    ),
+                                if (isExisting) {
+                                  // User exists in 'users' collection, attempt login
+                                 if(context.mounted) {
+                                   BlocProvider.of<AuthBloc>(context).add(LoginEvent(emailController.text, passwordController.text),
                                   );
+                                 }
+                                } else if (isPending) {
+                                  // User exists in 'pending_users', attempt registration
+                                  if(context.mounted) {
+                                    BlocProvider.of<AuthBloc>(context).add(
+                                      RegisterPendingEvent(
+                                        emailController.text,
+                                        passwordController.text,
+                                        '',
+                                      ),
+                                    );
+                                  }
+                                } else {
+                                  // User doesn't exist in either collection
+                                  if(mounted) {
+                                    SnackbarUtils.showSnackBar(context,TOASTSTYLE.ERROR, "No account found with this email. Please contact an admin.");
+                                  }
                                 }
-                                setState(() {
-                                  _isLoading = false;
-                                });
-                              } else {
-                                // User doesn't exist in either collection
-                                if(mounted) {
-                                  SnackbarUtils.showSnackBar(context,TOASTSTYLE.ERROR, "No account found with this email. Please contact an admin.");
-                                }
-                                setState(() {
-                                  _isLoading = false;
-                                });
-                              }
-                            },
-                            text: Strings.login,
+                              },
+                              text: Strings.login,
+                            ),
                           ),
                           const SizedBox(height: 20),
                           if(_isLoading)

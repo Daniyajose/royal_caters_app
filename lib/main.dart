@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -73,6 +72,7 @@ class _MyAppState extends State<MyApp> {
   bool _isUserExist = false;
   bool _isLoading = true;
   bool _hasNetworkError = false;
+  bool _needsPasswordChange = false;
 
   @override
   void initState() {
@@ -118,6 +118,9 @@ class _MyAppState extends State<MyApp> {
           await FirebaseAuth.instance.signOut();
           await AppPreferences.setBool(Strings.isLloggedInPref, false);
           SnackbarUtils.showSnackBar(context, TOASTSTYLE.INFO, userDoc.exists ? "Your account has been deactivated." : "No user found. Please contact the Admin");
+        }else {
+          // Check if the user needs to change their password
+          _needsPasswordChange = userDoc['isFirstLogin'] == true;
         }
       }
 
@@ -160,7 +163,7 @@ class _MyAppState extends State<MyApp> {
       )
           : _isUserExist
           ? (_isUserLoggedIn() && FirebaseAuth.instance.currentUser != null
-          ? HomeScreen()
+          ?(_needsPasswordChange ? ChangePasswordScreen() : HomeScreen())
           : LoginScreen())
           : RegisterScreen(),
       routes: {

@@ -169,95 +169,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     }
   }
 
-  Future<void> _scheduleOrderReminder(OrderModel order, String isoDateTime) async {
-    final local = tz.local;
-    final orderDate = tz.TZDateTime.from(order.date, local); // Order date in local timezone
-    final formattedDate = DateFormat('dd MMMM yyyy').format(order.date);
-
-    // Schedule reminders from 7 days before to the order date
-    for (int daysBefore = 7; daysBefore >= 0; daysBefore--) {
-      final reminderDate = orderDate.subtract(Duration(days: daysBefore));
-      // Set reminder time to 7 AM local time
-      final reminderDateTime = tz.TZDateTime(
-        local,
-        reminderDate.year,
-        reminderDate.month,
-        reminderDate.day,
-        6, // 7 AM
-        0,  // Minutes
-        0,  // Seconds
-      );
-
-      // Only schedule if the reminder time is in the future
-      if (reminderDateTime.isAfter(tz.TZDateTime.now(local))) {
-        await FirebaseFirestore.instance.collection('scheduled_notifications').add({
-          'orderId': order.id,
-          'title': 'Order Reminder',
-          'body': 'You have scheduled an order for ${order.clientName} on $formattedDate',
-          'scheduledTime': reminderDateTime.toIso8601String(), // ISO 8601 with offset
-          'createdAt': FieldValue.serverTimestamp(),
-          'status': 'scheduled',
-        });
-      }
-    }
-  }
-
-  Future<void> _updateOrderReminder(OrderModel order, String isoDateTime) async {
-    final local = tz.local;
-    final orderDate = tz.TZDateTime.from(order.date, local);
-    final formattedDate = DateFormat('dd MMMM yyyy').format(order.date);
-
-    // Cancel existing reminders for this order
-    CollectionReference notifications = FirebaseFirestore.instance.collection('scheduled_notifications');
-    QuerySnapshot querySnapshot = await notifications.where('orderId', isEqualTo: order.id).get();
-    for (var doc in querySnapshot.docs) {
-      await notifications.doc(doc.id).update({
-        'status': 'canceled',
-        'canceledAt': FieldValue.serverTimestamp(),
-      });
-    }
-
-    // Schedule new reminders from 7 days before to the order date
-    for (int daysBefore = 7; daysBefore >= 0; daysBefore--) {
-      final reminderDate = orderDate.subtract(Duration(days: daysBefore));
-      final reminderDateTime = tz.TZDateTime(
-        local,
-        reminderDate.year,
-        reminderDate.month,
-        reminderDate.day,
-        6, // 7 AM
-        0,
-        0,
-      );
-
-      if (reminderDateTime.isAfter(tz.TZDateTime.now(local))) {
-        await notifications.add({
-          'orderId': order.id,
-          'title': 'Order Reminder',
-          'body': 'You have scheduled an order for ${order.clientName} on $formattedDate',
-          'scheduledTime': reminderDateTime.toIso8601String(),
-          'createdAt': FieldValue.serverTimestamp(),
-          'status': 'scheduled',
-        });
-      }
-    }
-  }
-
-  Future<void> _cancelOrderReminder(String orderId) async {
-    CollectionReference notifications =
-    FirebaseFirestore.instance.collection('scheduled_notifications');
-    QuerySnapshot querySnapshot =
-    await notifications.where('orderId', isEqualTo: orderId).get();
-
-    if (querySnapshot.docs.isNotEmpty) {
-      String docId = querySnapshot.docs.first.id;
-      await notifications.doc(docId).update({
-        'status': 'canceled', // Mark as canceled instead of deleting
-        'canceledAt': FieldValue.serverTimestamp(),
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocListener<OrderBloc, OrderState>(
@@ -651,4 +562,204 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       },
     ) ?? false; // Return false if dialog is dismissed
   }
+
+  Future<void> _scheduleOrderReminder(OrderModel order, String isoDateTime) async {
+    final local = tz.local;
+    final orderDate = tz.TZDateTime.from(order.date, local); // Order date in local timezone
+    final formattedDate = DateFormat('dd MMMM yyyy').format(order.date);
+
+    // Define notification times for the last 3 days (excluding order date)
+    const reminderHours = [6, 12, 18]; // 6 AM, 12 PM, 6 PM
+
+    // Schedule reminders from 7 days before to the order date
+    for (int daysBefore = 7; daysBefore >= 0; daysBefore--) {
+      final reminderDate = orderDate.subtract(Duration(days: daysBefore));
+
+      // For the order date (daysBefore == 0), only schedule at 6 AM
+      if (daysBefore == 0) {
+        final reminderDateTime = tz.TZDateTime(
+          local,
+          reminderDate.year,
+          reminderDate.month,
+          reminderDate.day,
+          6, // 6 AM only
+          0,
+          0,
+        );
+
+        if (reminderDateTime.isAfter(tz.TZDateTime.now(local))) {
+          await FirebaseFirestore.instance.collection('scheduled_notifications').add({
+            'orderId': order.id,
+            'title': 'Order Today',
+            'body': 'Your order for ${order.clientName} is today, $formattedDate!',
+            'scheduledTime': reminderDateTime.toIso8601String(),
+            'createdAt': FieldValue.serverTimestamp(),
+            'status': 'scheduled',
+          });
+        }
+      }
+      // For days 7 to 4 before, schedule only at 6 AM
+      else if (daysBefore >= 4) {
+        final reminderDateTime = tz.TZDateTime(
+          local,
+          reminderDate.year,
+          reminderDate.month,
+          reminderDate.day,
+          6, // 6 AM
+          0,
+          0,
+        );
+
+        if (reminderDateTime.isAfter(tz.TZDateTime.now(local))) {
+          await FirebaseFirestore.instance.collection('scheduled_notifications').add({
+            'orderId': order.id,
+            'title': 'Order Reminder',
+            'body': 'You have an order for ${order.clientName} on $formattedDate',
+            'scheduledTime': reminderDateTime.toIso8601String(),
+            'createdAt': FieldValue.serverTimestamp(),
+            'status': 'scheduled',
+          });
+        }
+      }
+      // For days 3 to 1 before, schedule at 6 AM, 12 PM, and 6 PM
+      else {
+        for (int hour in reminderHours) {
+          final reminderDateTime = tz.TZDateTime(
+            local,
+            reminderDate.year,
+            reminderDate.month,
+            reminderDate.day,
+            hour,
+            0,
+            0,
+          );
+
+          if (reminderDateTime.isAfter(tz.TZDateTime.now(local))) {
+            await FirebaseFirestore.instance.collection('scheduled_notifications').add({
+              'orderId': order.id,
+              'title': 'Order Reminder',
+              'body': 'Upcoming order for ${order.clientName} on $formattedDate at ${DateFormat('hh:mm a').format(reminderDateTime)}',
+              'scheduledTime': reminderDateTime.toIso8601String(),
+              'createdAt': FieldValue.serverTimestamp(),
+              'status': 'scheduled',
+            });
+          }
+        }
+      }
+    }
+  }
+
+  Future<void> _updateOrderReminder(OrderModel order, String isoDateTime) async {
+    final local = tz.local;
+    final orderDate = tz.TZDateTime.from(order.date, local);
+    final formattedDate = DateFormat('dd MMMM yyyy').format(order.date);
+
+    // Cancel existing reminders
+    CollectionReference notifications = FirebaseFirestore.instance.collection('scheduled_notifications');
+    QuerySnapshot querySnapshot = await notifications.where('orderId', isEqualTo: order.id).get();
+    for (var doc in querySnapshot.docs) {
+      await notifications.doc(doc.id).update({
+        'status': 'canceled',
+        'canceledAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    // Define notification times for the last 3 days (excluding order date)
+    const reminderHours = [6, 12, 18]; // 6 AM, 12 PM, 6 PM
+
+    // Schedule new reminders
+    for (int daysBefore = 7; daysBefore >= 0; daysBefore--) {
+      final reminderDate = orderDate.subtract(Duration(days: daysBefore));
+
+      // For the order date (daysBefore == 0), only schedule at 6 AM
+      if (daysBefore == 0) {
+        final reminderDateTime = tz.TZDateTime(
+          local,
+          reminderDate.year,
+          reminderDate.month,
+          reminderDate.day,
+          6, // 6 AM only
+          0,
+          0,
+        );
+
+        if (reminderDateTime.isAfter(tz.TZDateTime.now(local))) {
+          await notifications.add({
+            'orderId': order.id,
+            'title': 'Order Today',
+            'body': 'Your order for ${order.clientName} is today, $formattedDate!',
+            'scheduledTime': reminderDateTime.toIso8601String(),
+            'createdAt': FieldValue.serverTimestamp(),
+            'status': 'scheduled',
+          });
+        }
+      }
+      // For days 7 to 4 before, schedule only at 6 AM
+      else if (daysBefore >= 4) {
+        final reminderDateTime = tz.TZDateTime(
+          local,
+          reminderDate.year,
+          reminderDate.month,
+          reminderDate.day,
+          6, // 6 AM
+          0,
+          0,
+        );
+
+        if (reminderDateTime.isAfter(tz.TZDateTime.now(local))) {
+          await notifications.add({
+            'orderId': order.id,
+            'title': 'Order Reminder',
+            'body': 'You have an order for ${order.clientName} on $formattedDate',
+            'scheduledTime': reminderDateTime.toIso8601String(),
+            'createdAt': FieldValue.serverTimestamp(),
+            'status': 'scheduled',
+          });
+        }
+      }
+      // For days 3 to 1 before, schedule at 6 AM, 12 PM, and 6 PM
+      else {
+        for (int hour in reminderHours) {
+          final reminderDateTime = tz.TZDateTime(
+            local,
+            reminderDate.year,
+            reminderDate.month,
+            reminderDate.day,
+            hour,
+            0,
+            0,
+          );
+
+          if (reminderDateTime.isAfter(tz.TZDateTime.now(local))) {
+            await notifications.add({
+              'orderId': order.id,
+              'title': 'Order Reminder',
+              'body': 'Upcoming order for ${order.clientName} on $formattedDate at ${DateFormat('hh:mm a').format(reminderDateTime)}',
+              'scheduledTime': reminderDateTime.toIso8601String(),
+              'createdAt': FieldValue.serverTimestamp(),
+              'status': 'scheduled',
+            });
+          }
+        }
+      }
+    }
+  }
+
+  Future<void> _cancelOrderReminder(String orderId) async {
+    CollectionReference notifications =
+    FirebaseFirestore.instance.collection('scheduled_notifications');
+    QuerySnapshot querySnapshot =
+    await notifications.where('orderId', isEqualTo: orderId).get();
+
+    // Cancel all matching notifications
+    if (querySnapshot.docs.isNotEmpty) {
+      for (var doc in querySnapshot.docs) {
+        await notifications.doc(doc.id).update({
+          'status': 'canceled',
+          'canceledAt': FieldValue.serverTimestamp(),
+        });
+      }
+    }
+  }
+
 }

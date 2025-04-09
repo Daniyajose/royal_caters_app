@@ -33,9 +33,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
       resizeToAvoidBottomInset: true,
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) async {
-          if (state is AuthRegistered) {
+          if (state is AuthLoading) {
+            setState(() {
+              _isLoading = true; // Show loader when authentication starts
+            });
+          } else if (state is AuthRegistered) {
+            setState(() {
+              _isLoading = false; // Hide loader when authenticated
+            });
             Navigator.pushReplacementNamed(context, '/login');
           } else if (state is AuthError) {
+            setState(() {
+              _isLoading = false; // Hide loader on error
+            });
             SnackbarUtils.showSnackBar(context,TOASTSTYLE.ERROR,state.message);
           }
         },
@@ -61,38 +71,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           Image.asset(ImageAssetPath.royalCatersLogo, height: 160,width: 160,),
                           const SizedBox(height: 20),
                           inputFieldsWidget(),
-                          RCPrimaryButton(
-                            onPressed: () {
-                              FocusScope.of(context).unfocus();
+                          Opacity(
+                            opacity: _isLoading ? 0.5 : 1.0,
+                            child: RCPrimaryButton(
+                              onPressed: () {
+                                _isLoading
+                                    ? null // Disable button press when loading
+                                    :
+                                FocusScope.of(context).unfocus();
 
-                              setState(() {
-                                _isLoading =  true;
-                              });
+                                if (!validateInputs()) {
+                                  return;
+                                }
 
-                              if (!validateInputs()) {
-                                setState(() {
-                                  _isLoading = false;
-                                });
-                                return;
-                              }
-
-                              BlocProvider.of<AuthBloc>(context).add(
-                                RegisterEvent(
-                                  emailController.text,
-                                  passwordController.text,
-                                  nameController.text,
-                                  "super_admin",
-                                  false,
-                                  "super_admin",
-                                  DateTime.now().toIso8601String(),
-                                  '',
-                                ),
-                              );
-                              setState(() {
-                                _isLoading =  false;
-                              });
-                            },
-                            text: Strings.signup,
+                                BlocProvider.of<AuthBloc>(context).add(
+                                  RegisterEvent(
+                                    emailController.text,
+                                    passwordController.text,
+                                    nameController.text,
+                                    "super_admin",
+                                    false,
+                                    "super_admin",
+                                    DateTime.now().toIso8601String(),
+                                    '',
+                                  ),
+                                );
+                              },
+                              text: Strings.signup,
+                            ),
                           ),
                           const SizedBox(height: 30),
                           if(_isLoading)
