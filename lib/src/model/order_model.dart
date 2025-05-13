@@ -1,3 +1,5 @@
+import 'dart:ffi';
+
 class OrderModel {
   final String id;
   final String clientName;
@@ -7,9 +9,14 @@ class OrderModel {
   final DateTime time;   // Storing only the time as String (HH:mm format)
   final String orderDetails;
   final String orderType;
-  final String driverName;
+  final String? driverName;
   final List<String> images;
   final String orderStatus;
+  final int? numberofPax;
+  final int? numberofKids;
+  final double? advAmount;
+  final double? totalAmount;
+  final List<Vessel>? vessels;
 
   OrderModel({
     required this.id,
@@ -23,6 +30,11 @@ class OrderModel {
     required this.driverName,
     required this.images,
     required this.orderStatus,
+    this.numberofPax,
+    this.numberofKids,
+    this.advAmount,
+    this.totalAmount,
+    this.vessels,
   });
 
 
@@ -38,6 +50,11 @@ class OrderModel {
     String? driverName,
     List<String>? images,
     String? orderStatus,
+    int? numberofPax,
+    int? numberofKids,
+    double? advAmount,
+    double? totalAmount,
+    List<Vessel>? vessels,
   }) {
     return OrderModel(
       id: id ?? this.id,
@@ -51,6 +68,11 @@ class OrderModel {
       driverName: driverName ?? this.driverName,
       images: images ?? this.images,
       orderStatus: orderStatus ?? this.orderStatus,
+      numberofPax: numberofPax ?? this.numberofPax,
+      numberofKids: numberofKids ?? this.numberofKids,
+      advAmount: advAmount ?? this.advAmount,
+      totalAmount: totalAmount ?? this.totalAmount,
+      vessels: vessels ?? this.vessels,
     );
   }
 
@@ -67,6 +89,11 @@ class OrderModel {
       'driverName': driverName,
       'images': images,
       'orderStatus': orderStatus,
+      'numberofPax': numberofPax,
+      'numberofKids': numberofKids,
+      'advAmount': advAmount,
+      'totalAmount': totalAmount,
+      'vessels': vessels?.map((v) => v.toMap()).toList(),
     };
   }
 
@@ -84,7 +111,43 @@ class OrderModel {
       driverName: map['driverName'] ?? '',
       images: List<String>.from(map['images'] ?? []),
       orderStatus: map['orderStatus'] ?? 'Pending',
+      numberofPax: map['numberofPax'] != null ? (map['numberofPax'] as num?)?.toInt() : null,
+      numberofKids: map['numberofKids'] != null ? (map['numberofKids'] as num?)?.toInt() : null,
+      advAmount: map['advAmount'] != null ? (map['advAmount'] as num?)?.toDouble() : null,
+      totalAmount: map['totalAmount'] != null ? (map['totalAmount'] as num?)?.toDouble() : null,
+      vessels: (map['vessels'] as List<dynamic>?)?.map((v) => Vessel.fromMap(v)).toList(),
     );
   }
 
+}
+class Vessel {
+  final String name;
+  final bool isTaken;
+  final int quantity;
+  final bool isReturned;
+
+  Vessel({
+    required this.name,
+    this.isTaken = false,
+    this.quantity = 0,
+    this.isReturned = false,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'isTaken': isTaken,
+      'quantity': quantity,
+      'isReturned': isReturned,
+    };
+  }
+
+  factory Vessel.fromMap(Map<String, dynamic> map) {
+    return Vessel(
+      name: map['name'] ?? '',
+      isTaken: map['isTaken'] ?? false,
+      quantity: map['quantity'] ?? 0,
+      isReturned: map['isReturned'] ?? false,
+    );
+  }
 }

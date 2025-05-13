@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:royalcaters/src/screens/homescreen/tabs/orderList.dart';
+import 'package:royalcaters/src/screens/homescreen/orderList.dart';
 import 'package:royalcaters/src/screens/order/create_order_screen.dart';
 import 'package:royalcaters/utils/constants/color_constants.dart';
 
@@ -61,7 +61,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   Future<void> _fetchOrders() async {
     final now = DateTime.now();
-    final ordersSnapshot = await FirebaseFirestore.instance.collection('orders').get();
+ /*   final ordersSnapshot = await FirebaseFirestore.instance.collection('orders').get();
 
     final orders = ordersSnapshot.docs.map((doc) {
       return OrderModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
@@ -78,7 +78,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       }
     }
 
-    await batch.commit();
+    await batch.commit();*/
     if (mounted) context.read<OrderBloc>().add(FetchOrdersEvent());
   }
 

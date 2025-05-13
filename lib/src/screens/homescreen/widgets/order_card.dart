@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import '../../../../utils/constants/color_constants.dart';
 import '../../../bloc/order/order_bloc.dart';
@@ -13,17 +14,29 @@ class OrderCard extends StatelessWidget {
 
   const OrderCard({Key? key, required this.order}) : super(key: key);
 
+  bool _isOrderPastDue() {
+    final orderDateTime = DateTime(
+      order.date.year,
+      order.date.month,
+      order.date.day,
+      order.time.hour,
+      order.time.minute,
+      order.time.second,
+    );
+    final local = tz.local;
+    final tzOrderDateTime = tz.TZDateTime.from(orderDateTime, local);
+    final now = tz.TZDateTime.now(local);
+    return tzOrderDateTime.isBefore(now) && order.orderStatus == 'Upcoming';
+  }
+
   @override
   Widget build(BuildContext context) {
     // Format date and time
     String formattedDateTime = DateFormat('MMMM dd, yyyy • hh:mm a').format(order.date);
+    final isPastDue = _isOrderPastDue();
 
     return GestureDetector(
       onTap: ()  async {
-
-        if(order.orderStatus == 'Upcoming') {
-         // Store the context reference
-
           final result = await Navigator.push(
             context, // Use stored context
             MaterialPageRoute(
@@ -35,56 +48,70 @@ class OrderCard extends StatelessWidget {
             context.read<OrderBloc>().add(
                 FetchOrdersEvent()); // Safely refresh orders
           }
-        }
+
       },
       child: Card(
         color: white,
         elevation: 4,
         margin: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Name and Date-Time in the same row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      '${order.clientName}',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Text(
-                    formattedDateTime,
-                    style: TextStyle(fontSize: 15, color: black),
-                  ),
-                ],
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isPastDue)
+              Container(
+                width: 4,
+                color: Colors.orange.shade800,
+                height: 75, // Matches card content height
               ),
-              SizedBox(height: 5),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Location: ${order.clientLocation}',
-                      style: TextStyle(fontSize: 15, color: Colors.black),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Name and Date-Time in the same row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                
+                        Expanded(
+                          child: Text(
+                            '${order.clientName}',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          formattedDateTime,
+                          style: TextStyle(fontSize: 15, color: black),
+                        ),
+                      ],
                     ),
-                  ),
-                  Text(
-                    order.orderType,
-                    style: TextStyle(fontSize: 15, color: (order.orderType == 'Takeaway')? Colors.green: Colors.red),
-                  ),
-                ],
+                    SizedBox(height: 5),
+                
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Location: ${order.clientLocation}',
+                            style: TextStyle(fontSize: 15, color: Colors.black),
+                          ),
+                        ),
+                        Text(
+                          order.orderType,
+                          style: TextStyle(fontSize: 15, color: (order.orderType == 'Takeaway')? Colors.green: Colors.red),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 6),
+                
+                  ],
+                ),
               ),
-              SizedBox(height: 6),
-
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
