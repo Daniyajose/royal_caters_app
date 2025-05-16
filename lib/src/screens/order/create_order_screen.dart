@@ -24,7 +24,6 @@ import '../../bloc/order/order_event.dart';
 import '../../bloc/order/order_state.dart';
 import '../../firebase/notification_service.dart';
 import '../../model/order_model.dart';
-import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 class CreateOrderScreen extends StatefulWidget {
@@ -48,7 +47,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   final _numberofKidsController = TextEditingController();
   final _advAmountController = TextEditingController();
   final _totalAmountController = TextEditingController();
-
+  String? _responseId;
   DateTime? _selectedDate;
   String _orderType = 'Takeaway';
   String _orderStatus = 'Upcoming';
@@ -126,6 +125,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       _vessels = order.vessels ?? _availableVessels
           .map((name) => Vessel(name: name, isTaken: false, quantity: 0, isReturned: false))
           .toList();
+      _responseId = order.responseId;
       // Update quantity controllers for existing vessels
       for (var vessel in _vessels) {
         _vesselQuantityControllers[vessel.name] = TextEditingController(text: vessel.quantity.toString());
@@ -167,6 +167,40 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     }
   }
 
+  Future<String> _generateOrderNumber() async {
+    try {
+      // Query Firestore to get the highest orderNumber
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('orders')
+          .orderBy('orderNumber', descending: true)
+          .limit(1)
+          .get();
+
+      int nextNumber = 1; // Default for first order
+      if (querySnapshot.docs.isNotEmpty) {
+        final lastOrder = querySnapshot.docs.first.data();
+        final lastOrderNumber = lastOrder['orderNumber'] as String;
+        if (lastOrderNumber.startsWith('ORD')) {
+          final numberPart = lastOrderNumber.substring(5); // e.g., "001"
+          final number = int.tryParse(numberPart) ?? 0;
+          nextNumber = number + 1;
+        }
+      }
+
+      // Cap at 999 to maintain 6-character format
+      if (nextNumber > 99999) {
+        print('Warning: Maximum order number reached (ORD999999). Reusing or extend format.');
+        nextNumber = 1; // Reset or handle overflow as needed
+      }
+
+      // Format as ORD + 3 digits (e.g., ORD001)
+      return 'ORD${nextNumber.toString().padLeft(5, '0')}';
+    } catch (e) {
+      print('Error generating order number: $e');
+      return 'ORD00001'; // Fallback to start
+    }
+  }
+
   Future<void> _createOrUpdateOrder() async {
     final isConnected = await NetworkService().isConnected();
     if (!isConnected) {
@@ -192,8 +226,12 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         return image.startsWith("http") ? image : await _uploadImage(File(image));
       }));
 
+      // Generate orderNumber for new orders
+      final orderNumber = widget.order == null ? await _generateOrderNumber() : widget.order!.orderNumber;
+
       final order = OrderModel(
         id: widget.order?.id ?? Uuid().v4(),
+        orderNumber: orderNumber,
         clientName: _clientNameController.text,
         clientLocation: _clientLocationController.text,
         clientContact: _clientContactController.text,
@@ -206,17 +244,18 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         orderStatus: _orderStatus,
         numberofPax: _numberofPaxController.text.isNotEmpty
             ? int.tryParse(_numberofPaxController.text)
-            : null,
+            : (widget.order?.numberofPax ?? null),
         numberofKids: _numberofKidsController.text.isNotEmpty
             ? int.tryParse(_numberofKidsController.text)
-            : null,
+            : (widget.order?.numberofKids ?? null),
         advAmount: _isAdmin && _advAmountController.text.isNotEmpty
             ? double.tryParse(_advAmountController.text)
-            : null,
+            : (_isAdmin ? null : widget.order?.advAmount),
         totalAmount: _isAdmin && _totalAmountController.text.isNotEmpty
             ? double.tryParse(_totalAmountController.text)
-            : null,
-        vessels: _vessels, //
+            : (_isAdmin ? null : widget.order?.totalAmount),
+        vessels: _vessels,
+        responseId: _responseId,
       );
 
       final bloc = context.read<OrderBloc>();
@@ -274,107 +313,6 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     } else {
       SnackbarUtils.showSnackBar(context, TOASTSTYLE.ERROR, "Storage permission denied.");
       return false;
-    }
-  }
-
-  Future<void> _generateAndSavePDF() async {
-    // Request storage permission
-    final hasPermission = await _requestStoragePermission();
-    if (!hasPermission) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      final pdf = pw.Document();
-
-      // Load images from URLs or local files
-      final List<pw.Widget> imageWidgets = [];
-      for (String image in _images) {
-        if (image.startsWith("http")) {
-          final response = await http.get(Uri.parse(image));
-          final imageBytes = response.bodyBytes;
-          imageWidgets.add(pw.Image(pw.MemoryImage(imageBytes), width: 100, height: 100));
-        } else {
-          final file = File(image);
-          final imageBytes = await file.readAsBytes();
-          imageWidgets.add(pw.Image(pw.MemoryImage(imageBytes), width: 100, height: 100));
-        }
-      }
-
-      // Build vessel details for PDF
-      final vesselDetails = _vessels.map((v) => pw.Text(
-        '${v.name}: ${v.isTaken ? "Taken (${v.quantity} units)" : "Not Taken"}'
-            '${v.isReturned && _orderStatus == "Completed" ? ", Returned" : ""}',
-        style: pw.TextStyle(fontSize: 24),
-      ));
-
-      pdf.addPage(
-        pw.Page(
-          build: (pw.Context context) => pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text(
-                'Order Details',
-                style: pw.TextStyle(fontSize: 28, fontWeight: pw.FontWeight.bold),
-              ),
-              pw.SizedBox(height: 40),
-              pw.Text('Client Name: ${widget.order?.clientName}', style: pw.TextStyle(fontSize: 24)),
-              pw.SizedBox(height: 25),
-              pw.Text('Client Location: ${widget.order?.clientLocation}', style: pw.TextStyle(fontSize: 24)),
-              pw.SizedBox(height: 25),
-              pw.Text('Client Contact: ${widget.order?.clientContact}', style: pw.TextStyle(fontSize: 24)),
-              pw.SizedBox(height: 25),
-              pw.Text('Date & Time: ${DateFormat('dd MMMM yyyy').format(widget.order!.date)} , ${DateFormat('HH:mm:ss a').format(widget.order!.time)}', style: pw.TextStyle(fontSize: 24)),
-              pw.SizedBox(height: 25),
-              pw.Text('Order Type: ${widget.order?.orderType}', style: pw.TextStyle(fontSize: 24)),
-              pw.SizedBox(height: 25),
-              pw.Text('Driver Name: ${widget.order?.driverName}', style: pw.TextStyle(fontSize: 24)),
-              pw.SizedBox(height: 25),
-              pw.Text('Number of pax: ${widget.order?.numberofPax?.toString() ?? 'N/A'}', style: pw.TextStyle(fontSize: 24)),
-              pw.SizedBox(height: 25),
-              pw.Text('Number of kids: ${widget.order?.numberofKids?.toString() ?? 'N/A'}', style: pw.TextStyle(fontSize: 24)),
-              pw.SizedBox(height: 25),
-              pw.Text('Order Details: ${widget.order?.orderDetails}', style: pw.TextStyle(fontSize: 24)),
-              pw.SizedBox(height: 20),
-              if (_vessels.isNotEmpty) ...[
-                pw.Text('Vessels:', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-                pw.SizedBox(height: 10),
-                ...vesselDetails,
-                pw.SizedBox(height: 20),
-              ],
-              pw.SizedBox(height: 40),
-              if (imageWidgets.isNotEmpty) ...[
-                pw.Text(
-                  'Images:',
-                  style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
-                ),
-                pw.SizedBox(height: 10),
-                pw.Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: imageWidgets,
-                ),
-              ],
-            ],
-          ),
-        ),
-      );
-
-      // Save the PDF to a temporary directory
-      final directory = await getTemporaryDirectory();
-      final file = File('${directory.path}/order_${widget.order!.id}.pdf');
-      await file.writeAsBytes(await pdf.save());
-
-      // Open the PDF file
-      final result = await OpenFile.open(file.path);
-      if (result.type != ResultType.done) {
-        SnackbarUtils.showSnackBar(context, TOASTSTYLE.ERROR, "Failed to open PDF: ${result.message}");
-      }
-    } catch (e) {
-      print("PDF generation error: $e");
-      SnackbarUtils.showSnackBar(context, TOASTSTYLE.ERROR, "Failed to generate PDF: $e");
-    } finally {
-      setState(() => _isLoading = false);
     }
   }
 
@@ -437,7 +375,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: primaryColor,
-      title: Text(widget.order == null ? 'Create Order' : 'Edit Order', style: TextStyle(color: white)),
+      title: Text(widget.order == null ? 'Create Order' : 'Edit Order - ${widget.order?.orderNumber}', style: TextStyle(color: white)),
       leading: IconButton(
         icon: Icon(Icons.arrow_back, color: white),
         onPressed: () => Navigator.pop(context),
@@ -521,6 +459,10 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         const SizedBox(height: 15),
         _textFieldView(_clientContactController, 'Client Phone/Email'),
         const SizedBox(height: 15),
+        _textFieldView(_numberofPaxController, 'Number of pax', isNumeric: true, allowDecimal: false),
+        const SizedBox(height: 15),
+        _textFieldView(_numberofKidsController, 'Number of kids', isNumeric: true, allowDecimal: false),
+        const SizedBox(height: 15),
         _textFieldView(_orderDetailsController, 'Order Details', isMultiline: true),
         const SizedBox(height: 15),
         _dateTimePickerView(),
@@ -540,16 +482,13 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           }).toList(),
         ),
         const SizedBox(height: 10),
-        _textFieldView(_numberofPaxController, 'Number of pax', isNumeric: true, allowDecimal: false),
-        const SizedBox(height: 15),
-        _textFieldView(_numberofKidsController, 'Number of kids', isNumeric: true, allowDecimal: false),
-        const SizedBox(height: 15),
         _textFieldView(_driverNameController, 'Driver Name',allowValidation: false),
         const SizedBox(height: 15),
         if (_isAdmin) ...[
-          _textFieldView(_advAmountController, 'Advance amount', isNumeric: true),
-          const SizedBox(height: 15),
           _textFieldView(_totalAmountController, 'Total amount', isNumeric: true),
+          const SizedBox(height: 15),
+          _textFieldView(_advAmountController, 'Advance amount', isNumeric: true),
+
         ]
       ],
     );
@@ -1213,6 +1152,18 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     }
   }
 
+  bool _areVesselsValidForCompletion() {
+    // Check if any vessels are selected (isTaken: true and quantity > 0)
+    final selectedVessels = _vessels.where((v) => v.isTaken && v.quantity > 0).toList();
+
+    // If no vessels are selected, return true (no validation needed)
+    if (selectedVessels.isEmpty) {
+      return true;
+    }
+
+    // If any vessels are selected, all must be returned
+    return selectedVessels.every((v) => v.isReturned);
+  }
 
   bool _isOrderPastDue() {
     if (widget.order == null) return false;
@@ -1244,6 +1195,11 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       return;
     }
 
+    // Validate vessels
+    if (!_areVesselsValidForCompletion()) {
+      SnackbarUtils.showSnackBar(context, TOASTSTYLE.ERROR, "All selected vessels must be marked as returned.");
+      return;
+    }
     setState(() => _isLoading = true);
 
     try {
@@ -1259,6 +1215,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
       final order = OrderModel(
         id: widget.order!.id,
+        orderNumber: widget.order!.orderNumber,
         clientName: _clientNameController.text,
         clientLocation: _clientLocationController.text,
         clientContact: _clientContactController.text,
@@ -1271,17 +1228,18 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         orderStatus: 'Completed', // Set status to Completed
         numberofPax: _numberofPaxController.text.isNotEmpty
             ? int.tryParse(_numberofPaxController.text)
-            : null,
+            : widget.order!.numberofPax,
         numberofKids: _numberofKidsController.text.isNotEmpty
             ? int.tryParse(_numberofKidsController.text)
-            : null,
+            : widget.order!.numberofKids,
         advAmount: _isAdmin && _advAmountController.text.isNotEmpty
             ? double.tryParse(_advAmountController.text)
-            : null,
+            : (_isAdmin ? null : widget.order!.advAmount),
         totalAmount: _isAdmin && _totalAmountController.text.isNotEmpty
             ? double.tryParse(_totalAmountController.text)
-            : null,
+            : (_isAdmin ? null : widget.order!.totalAmount),
         vessels: _vessels,
+        responseId: _responseId,
       );
 
       context.read<OrderBloc>().add(UpdateOrderEvent(order));
@@ -1298,6 +1256,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
   Widget _buildUpdateAndCancelButtons() {
     final isPastDue = _isOrderPastDue();
+    final isVesselValid = _areVesselsValidForCompletion();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
@@ -1316,9 +1275,10 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           const SizedBox(width: 16),
           Expanded(
             child: ElevatedButton(
-              onPressed: isPastDue ? _completeOrder : _createOrUpdateOrder,
+              onPressed: () => _handleCompleteOrUpdate(isPastDue, isVesselValid),
               style: ElevatedButton.styleFrom(
-                backgroundColor: primaryColor,
+                backgroundColor: isPastDue ? primaryColor.withOpacity(0.4) : primaryColor,
+                disabledBackgroundColor: isPastDue ? primaryColor.withOpacity(0.4) : primaryColor,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
@@ -1331,6 +1291,17 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         ],
       ),
     );
+  }
+  void _handleCompleteOrUpdate(bool isPastDue, bool isVesselValid) {
+    if (isPastDue && !isVesselValid) {
+      SnackbarUtils.showSnackBar(context, TOASTSTYLE.ERROR, "All selected vessels must be marked as returned.");
+      return;
+    }
+    if (isPastDue) {
+      _completeOrder();
+    } else {
+      _createOrUpdateOrder();
+    }
   }
 }
 

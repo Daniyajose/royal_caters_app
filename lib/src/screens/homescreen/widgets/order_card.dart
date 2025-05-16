@@ -74,10 +74,10 @@ class OrderCard extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                
+
                         Expanded(
                           child: Text(
-                            '${order.clientName}',
+                            '${order.orderNumber}',
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -85,6 +85,29 @@ class OrderCard extends StatelessWidget {
                         Text(
                           formattedDateTime,
                           style: TextStyle(fontSize: 15, color: black),
+                        ),
+                      ],
+                    ),
+                    Divider(
+                      color: Colors.grey.shade300,
+                      thickness: 1.0,
+                    ),
+                    SizedBox(height: 5),
+                    // Name and Date-Time in the same row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                
+                        Expanded(
+                          child: Text(
+                            '${order.clientName}',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          order.clientContact,
+                          style: TextStyle(fontSize: 15, color: Colors.black),
                         ),
                       ],
                     ),
@@ -103,6 +126,7 @@ class OrderCard extends StatelessWidget {
                           order.orderType,
                           style: TextStyle(fontSize: 15, color: (order.orderType == 'Takeaway')? Colors.green: Colors.red),
                         ),
+
                       ],
                     ),
                     SizedBox(height: 6),
@@ -115,5 +139,8 @@ class OrderCard extends StatelessWidget {
         ),
       ),
     );
+
+
   }
+
 }

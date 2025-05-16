@@ -2,6 +2,7 @@ import 'dart:ffi';
 
 class OrderModel {
   final String id;
+  final String orderNumber;
   final String clientName;
   final String clientLocation;
   final String clientContact;
@@ -17,9 +18,11 @@ class OrderModel {
   final double? advAmount;
   final double? totalAmount;
   final List<Vessel>? vessels;
+  final String? responseId;
 
   OrderModel({
     required this.id,
+    required this.orderNumber,
     required this.clientName,
     required this.clientLocation,
     required this.clientContact,
@@ -35,11 +38,13 @@ class OrderModel {
     this.advAmount,
     this.totalAmount,
     this.vessels,
+    this.responseId,
   });
 
 
   OrderModel copyWith({
     String? id,
+    String? orderNumber,
     String? clientName,
     String? clientLocation,
     String? clientContact,
@@ -55,9 +60,11 @@ class OrderModel {
     double? advAmount,
     double? totalAmount,
     List<Vessel>? vessels,
+    String? responseId,
   }) {
     return OrderModel(
       id: id ?? this.id,
+      orderNumber: orderNumber ?? this.orderNumber,
       clientName: clientName ?? this.clientName,
       clientLocation: clientLocation ?? this.clientLocation,
       clientContact: clientContact ?? this.clientContact,
@@ -73,12 +80,14 @@ class OrderModel {
       advAmount: advAmount ?? this.advAmount,
       totalAmount: totalAmount ?? this.totalAmount,
       vessels: vessels ?? this.vessels,
+      responseId: responseId ?? this.responseId,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'orderNumber': orderNumber,
       'clientName': clientName,
       'clientLocation': clientLocation,
       'clientContact': clientContact,
@@ -94,6 +103,7 @@ class OrderModel {
       'advAmount': advAmount,
       'totalAmount': totalAmount,
       'vessels': vessels?.map((v) => v.toMap()).toList(),
+      'responseId': responseId,
     };
   }
 
@@ -101,6 +111,7 @@ class OrderModel {
   factory OrderModel.fromMap(Map<String, dynamic> map, String documentId) {
     return OrderModel(
       id: documentId,
+      orderNumber: map['orderNumber'] ?? '',
       clientName: map['clientName'] ?? '',
       clientLocation: map['clientLocation'] ?? '',
       clientContact: map['clientContact'] ?? '',
@@ -116,6 +127,7 @@ class OrderModel {
       advAmount: map['advAmount'] != null ? (map['advAmount'] as num?)?.toDouble() : null,
       totalAmount: map['totalAmount'] != null ? (map['totalAmount'] as num?)?.toDouble() : null,
       vessels: (map['vessels'] as List<dynamic>?)?.map((v) => Vessel.fromMap(v)).toList(),
+      responseId: map['responseId'],
     );
   }
 

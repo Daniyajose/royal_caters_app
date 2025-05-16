@@ -106,7 +106,7 @@ class _OrderListState extends State<OrderList> {
                     child: TextField(
                         controller: _searchController,
                         decoration: InputDecoration(
-                        hintText: 'Search by name or contact',
+                        hintText: 'Search by name,order number,contact',
                         hintStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.normal, color: Colors.grey),
                         prefixIcon: const Icon(Icons.search),
                         border: OutlineInputBorder(
@@ -162,6 +162,7 @@ class _OrderListState extends State<OrderList> {
                     // Search filter
                     bool matchesSearch = _searchQuery.isEmpty ||
                         order.clientName.toLowerCase().contains(_searchQuery) ||
+                        order.orderNumber.toLowerCase().contains(_searchQuery) ||
                         order.clientContact.toLowerCase().contains(_searchQuery);
 
                     // Date filter
@@ -712,10 +713,13 @@ class _OrderListState extends State<OrderList> {
                 pw.Table(
                   border: pw.TableBorder.all(),
                   columnWidths: {
-                    0: const pw.FlexColumnWidth(3),
-                    1: const pw.FlexColumnWidth(3),
-                    2: const pw.FlexColumnWidth(2),
-                    3: const pw.FlexColumnWidth(5),
+                    0: const pw.FlexColumnWidth(2), // orderNumber
+                    1: const pw.FlexColumnWidth(3), // date
+                    2: const pw.FlexColumnWidth(3), // clientName
+                    3: const pw.FlexColumnWidth(1.5), // numberOfPax
+                    4: const pw.FlexColumnWidth(1.5), // numberOfKids
+                    5: const pw.FlexColumnWidth(5), // orderDetails
+                    6: const pw.FlexColumnWidth(4), // vesselList
                   },
 
                   children: [
@@ -723,54 +727,104 @@ class _OrderListState extends State<OrderList> {
                     pw.TableRow(
                       children: [
                         pw.Padding(
-                          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                          child: pw.Text(
+                            'Order Num',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                          child: pw.Text(
+                            'Date and Time',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                           child: pw.Text(
                             'Client Name',
-                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
                           ),
                         ),
                         pw.Padding(
-                          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                           child: pw.Text(
-                            'Client Location',
-                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                            'Pax',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
                           ),
                         ),
                         pw.Padding(
-                          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                           child: pw.Text(
-                            'Time',
-                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                            'Kids',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
                           ),
                         ),
                         pw.Padding(
-                          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                           child: pw.Text(
                             'Order Details',
-                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                          child: pw.Text(
+                            'Vessels',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
                           ),
                         ),
                       ],
                     ),
                     // Data rows
                     ...orders.map((order) {
+
+                      final vesselList = (order.vessels ?? [])
+                          .where((v) => v.isTaken && v.quantity > 0)
+                          .map((v) => '${v.name}: ${v.quantity}')
+                          .join(', ');
                       return pw.TableRow(
                         children: [
                           pw.Padding(
-                            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                            child: pw.Text(order.clientName),
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 14),
+                            child: pw.Text(order.orderNumber, style: const pw.TextStyle(fontSize: 10)),
                           ),
                           pw.Padding(
-                            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                            child: pw.Text(order.clientLocation),
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 14),
+                            child: pw.Text(
+                              '${DateFormat('dd MMMM yyyy').format(order.date)} ${DateFormat('hh:mm a').format(order.time)}',
+                              style: const pw.TextStyle(fontSize: 10),
+                            ),
                           ),
                           pw.Padding(
-                            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                            child: pw.Text(DateFormat('hh:mm a').format(order.time)),
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 14),
+                            child: pw.Text(order.clientName, style: const pw.TextStyle(fontSize: 10)),
                           ),
                           pw.Padding(
-                            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                            child: pw.Text(order.orderDetails),
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 14),
+                            child: pw.Text(
+                              order.numberofPax?.toString() ?? 'N/A',
+                              style: const pw.TextStyle(fontSize: 10),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 14),
+                            child: pw.Text(
+                              order.numberofKids?.toString() ?? 'N/A',
+                              style: const pw.TextStyle(fontSize: 10),
+                            ),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 14),
+                            child: pw.Text(order.orderDetails, style: const pw.TextStyle(fontSize: 10)),
+                          ),
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 14),
+                            child: pw.Text(
+                              vesselList.isEmpty ? 'None' : vesselList,
+                              style: const pw.TextStyle(fontSize: 10),
+                            ),
                           ),
                         ],
                       );
