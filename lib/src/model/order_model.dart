@@ -8,6 +8,7 @@ class OrderModel {
   final String clientContact;
   final DateTime date; // Keeping it as DateTime
   final DateTime time;   // Storing only the time as String (HH:mm format)
+  final String scheduledTime;
   final String orderDetails;
   final String orderType;
   final String? driverName;
@@ -19,6 +20,8 @@ class OrderModel {
   final double? totalAmount;
   final List<Vessel>? vessels;
   final String? responseId;
+  final String? contactPersonName;
+  final String? contactPersonNumber;
 
   OrderModel({
     required this.id,
@@ -28,6 +31,7 @@ class OrderModel {
     required this.clientContact,
     required this.date,
     required this.time,
+    required this.scheduledTime,
     required this.orderDetails,
     required this.orderType,
     required this.driverName,
@@ -39,6 +43,8 @@ class OrderModel {
     this.totalAmount,
     this.vessels,
     this.responseId,
+    this.contactPersonName,
+    this.contactPersonNumber,
   });
 
 
@@ -50,6 +56,7 @@ class OrderModel {
     String? clientContact,
     DateTime? date,
     DateTime? time,
+    String? scheduledTime,
     String? orderDetails,
     String? orderType,
     String? driverName,
@@ -61,6 +68,8 @@ class OrderModel {
     double? totalAmount,
     List<Vessel>? vessels,
     String? responseId,
+    String? contactPersonName,
+    String? contactPersonNumber,
   }) {
     return OrderModel(
       id: id ?? this.id,
@@ -70,6 +79,7 @@ class OrderModel {
       clientContact: clientContact ?? this.clientContact,
       date: date ?? this.date,
       time: time ?? this.time,
+      scheduledTime: scheduledTime ?? this.scheduledTime,
       orderDetails: orderDetails ?? this.orderDetails,
       orderType: orderType ?? this.orderType,
       driverName: driverName ?? this.driverName,
@@ -81,6 +91,8 @@ class OrderModel {
       totalAmount: totalAmount ?? this.totalAmount,
       vessels: vessels ?? this.vessels,
       responseId: responseId ?? this.responseId,
+      contactPersonName: contactPersonName ?? this.contactPersonName,
+      contactPersonNumber: contactPersonNumber ?? this.contactPersonNumber,
     );
   }
 
@@ -93,6 +105,7 @@ class OrderModel {
       'clientContact': clientContact,
       'date': date.toIso8601String(),  // Fix: Correct key name
       'time': time.toIso8601String(),  // Fix: Correct key name
+      'scheduledTime': scheduledTime,  // Fix: Correct key name
       'orderDetails': orderDetails,
       'orderType': orderType,
       'driverName': driverName,
@@ -104,6 +117,8 @@ class OrderModel {
       'totalAmount': totalAmount,
       'vessels': vessels?.map((v) => v.toMap()).toList(),
       'responseId': responseId,
+      'contactPersonName': contactPersonName,
+      'contactPersonNumber': contactPersonNumber,
     };
   }
 
@@ -117,6 +132,7 @@ class OrderModel {
       clientContact: map['clientContact'] ?? '',
       date: map['date'] != null ? DateTime.parse(map['date']) : DateTime.now(), // Fix: Safe parsing
       time: map['time'] != null ? DateTime.parse(map['time']) : DateTime.now(), // Fix: Safe parsing
+      scheduledTime: map['scheduledTime'] ?? '',
       orderDetails: map['orderDetails'] ?? '',
       orderType: map['orderType'] ?? 'Takeaway',
       driverName: map['driverName'] ?? '',
@@ -128,6 +144,8 @@ class OrderModel {
       totalAmount: map['totalAmount'] != null ? (map['totalAmount'] as num?)?.toDouble() : null,
       vessels: (map['vessels'] as List<dynamic>?)?.map((v) => Vessel.fromMap(v)).toList(),
       responseId: map['responseId'],
+      contactPersonName: map['contactPersonName'],
+      contactPersonNumber: map['contactPersonNumber'],
     );
   }
 

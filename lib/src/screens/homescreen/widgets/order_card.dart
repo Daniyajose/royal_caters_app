@@ -23,9 +23,9 @@ class OrderCard extends StatelessWidget {
       order.time.minute,
       order.time.second,
     );
-    final local = tz.local;
-    final tzOrderDateTime = tz.TZDateTime.from(orderDateTime, local);
-    final now = tz.TZDateTime.now(local);
+    final location = tz.getLocation('Europe/Dublin');
+    final tzOrderDateTime = tz.TZDateTime.from(orderDateTime, location);
+    final now = tz.TZDateTime.now(location);
     return tzOrderDateTime.isBefore(now) && order.orderStatus == 'Upcoming';
   }
 
@@ -55,87 +55,88 @@ class OrderCard extends StatelessWidget {
         elevation: 4,
         margin: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (isPastDue)
-              Container(
-                width: 4,
-                color: Colors.orange.shade800,
-                height: 75, // Matches card content height
-              ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Name and Date-Time in the same row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (isPastDue)
+                Container(
+                  width: 4,
+                  color: Colors.orange.shade800,
+                ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Name and Date-Time in the same row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
 
-                        Expanded(
-                          child: Text(
-                            '${order.orderNumber}',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            overflow: TextOverflow.ellipsis,
+                          Expanded(
+                            child: Text(
+                              '${order.orderNumber}',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                        Text(
-                          formattedDateTime,
-                          style: TextStyle(fontSize: 15, color: black),
-                        ),
-                      ],
-                    ),
-                    Divider(
-                      color: Colors.grey.shade300,
-                      thickness: 1.0,
-                    ),
-                    SizedBox(height: 5),
-                    // Name and Date-Time in the same row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                
-                        Expanded(
-                          child: Text(
-                            '${order.clientName}',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
-                            overflow: TextOverflow.ellipsis,
+                          Text(
+                            formattedDateTime,
+                            style: TextStyle(fontSize: 15, color: black),
                           ),
-                        ),
-                        Text(
-                          order.clientContact,
-                          style: TextStyle(fontSize: 15, color: Colors.black),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 5),
-                
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Location: ${order.clientLocation}',
+                        ],
+                      ),
+                      Divider(
+                        color: Colors.grey.shade300,
+                        thickness: 1.0,
+                      ),
+                      SizedBox(height: 5),
+                      // Name and Date-Time in the same row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+
+                          Expanded(
+                            child: Text(
+                              '${order.clientName}',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Text(
+                            order.clientContact,
                             style: TextStyle(fontSize: 15, color: Colors.black),
                           ),
-                        ),
-                        Text(
-                          order.orderType,
-                          style: TextStyle(fontSize: 15, color: (order.orderType == 'Takeaway')? Colors.green: Colors.red),
-                        ),
+                        ],
+                      ),
+                      SizedBox(height: 5),
 
-                      ],
-                    ),
-                    SizedBox(height: 6),
-                
-                  ],
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Location: ${order.clientLocation}',
+                              style: TextStyle(fontSize: 15, color: Colors.black),
+                            ),
+                          ),
+                          Text(
+                            order.orderType,
+                            style: TextStyle(fontSize: 15, color: (order.orderType == 'Takeaway')? Colors.green: Colors.red),
+                          ),
+
+                        ],
+                      ),
+                      SizedBox(height: 6),
+
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

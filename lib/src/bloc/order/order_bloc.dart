@@ -57,4 +57,5 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
       emit(OrderFailure(e.toString()));
     }
   }
+
 }

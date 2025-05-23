@@ -134,6 +134,20 @@ class _LoginScreenState extends State<LoginScreen> {
                               text: Strings.login,
                             ),
                           ),
+                          const SizedBox(height: 2),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/forgot_password');
+                            },
+                            child: const Text(
+                              "Forgot Password?",
+                              style: TextStyle(
+                                color: primaryColor,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
                           const SizedBox(height: 20),
                           if(_isLoading)
                           Center(

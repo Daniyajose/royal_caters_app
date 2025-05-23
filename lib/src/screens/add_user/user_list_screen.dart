@@ -14,6 +14,7 @@ import '../../../utils/widgets/toast.dart';
 import '../../bloc/user/user_bloc.dart';
 import '../../bloc/user/user_event.dart';
 import '../../bloc/user/user_state.dart';
+import '../../repositories/auth_repository.dart';
 
 class UserListScreen extends StatefulWidget {
   @override
@@ -22,6 +23,7 @@ class UserListScreen extends StatefulWidget {
 
 class _UserListScreenState extends State<UserListScreen> {
   String currentUserRole = "";
+  final AuthRepository _authRepository = AuthRepository();
 
   @override
   void initState() {
@@ -200,29 +202,51 @@ class _UserListScreenState extends State<UserListScreen> {
       builder: (_) => AlertDialog(
         backgroundColor: white,
         title: Center(child: Text("Add User", style: TextStyle(color: primaryColor, fontSize: 24))),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(height: 10),
-            _textFieldView(nameController, Strings.name),
-            SizedBox(height: 25),
-            _textFieldView(emailController, Strings.email),
-            SizedBox(height: 25),
-            DropdownButtonFormField<String>(
-              value: role,
-              onChanged: (value) => role = value ?? "staff",
-              items: ["admin", "staff"]
-                  .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                  .toList(),
-              decoration: _inputDecoration("Select Role"),
-            ),
-          ],
+        content: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.8,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(height: 10),
+              _textFieldView(nameController, Strings.name),
+              SizedBox(height: 25),
+              _textFieldView(emailController, Strings.email),
+              SizedBox(height: 25),
+              DropdownButtonFormField<String>(
+                value: role,
+                onChanged: (value) => role = value ?? "staff",
+                items: ["admin", "staff"]
+                    .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                    .toList(),
+                decoration: _inputDecoration("Select Role"),
+              ),
+            ],
+          ),
         ),
         actions: [
           _dialogAction("CANCEL", () => Navigator.pop(context)),
-          _dialogAction("ADD", () {
+          _dialogAction("ADD", () async {
             FocusScope.of(context).unfocus();
             if (!validateInputs(emailController, nameController)) return;
+            final email = emailController.text.trim();
+
+            // Check if email exists in users or pending_users
+            bool userExists = await _authRepository.doesUserExist(email);
+            if (userExists) {
+              SnackbarUtils.showSnackBar(context, TOASTSTYLE.ERROR, "Email already exists!");
+              return;
+            }
+
+            bool pendingUserExists = await FirebaseFirestore.instance
+                .collection('pending_users')
+                .doc(email)
+                .get()
+                .then((doc) => doc.exists);
+
+            if (pendingUserExists) {
+              SnackbarUtils.showSnackBar(context, TOASTSTYLE.ERROR, "Email already exists!");
+              return;
+            }
 
             context.read<UserBloc>().add(AddUser(
               email: emailController.text.trim(),

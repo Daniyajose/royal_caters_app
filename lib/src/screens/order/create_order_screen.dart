@@ -47,6 +47,8 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
   final _numberofKidsController = TextEditingController();
   final _advAmountController = TextEditingController();
   final _totalAmountController = TextEditingController();
+  final _contactPersonNameController = TextEditingController();
+  final _contactPersonNumberController = TextEditingController();
   String? _responseId;
   DateTime? _selectedDate;
   String _orderType = 'Takeaway';
@@ -59,9 +61,10 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
   // List of available vessel names
   static const List<String> _availableVessels = [
-    'Flat Tray 2 kg',
-    'Flat Tray 4 kg',
-    'Flat Tray 6 kg',
+    'Flat Tray 1 kg',
+    'Tray 2 kg',
+    'Tray 4 kg',
+    'Tray 6 kg',
     'Black Box',
     'Hot Box',
     'Chafing Dish',
@@ -88,6 +91,8 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     _numberofKidsController.dispose();
     _advAmountController.dispose();
     _totalAmountController.dispose();
+    _contactPersonNameController.dispose();
+    _contactPersonNumberController.dispose();
     // Dispose of vessel quantity controllers
     _vesselQuantityControllers.values.forEach((controller) => controller.dispose());
     super.dispose();
@@ -122,6 +127,8 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       _numberofKidsController.text = order.numberofKids?.toString() ?? '';
       _advAmountController.text = order.advAmount?.toString() ?? '';
       _totalAmountController.text = order.totalAmount?.toString() ?? '';
+      _contactPersonNameController.text = order.contactPersonName?.toString() ?? '';
+      _contactPersonNumberController.text = order.contactPersonNumber?.toString() ?? '';
       _vessels = order.vessels ?? _availableVessels
           .map((name) => Vessel(name: name, isTaken: false, quantity: 0, isReturned: false))
           .toList();
@@ -215,11 +222,12 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
     setState(() => _isLoading = true);
 
+
     try {
       final date = DateFormat('dd MMMM yyyy').parse(_dateController.text);
       final time = DateFormat('HH:mm:ss').parse(_timeController.text);
       final localDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute, time.second);
-      final tzDateTime = tz.TZDateTime.from(localDateTime, tz.local);
+      final tzDateTime = tz.TZDateTime.from(localDateTime, tz.getLocation('Europe/Dublin'));
       final isoDateTime = tzDateTime.toIso8601String();
 
       final imageUrls = await Future.wait(_images.map((image) async {
@@ -237,6 +245,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         clientContact: _clientContactController.text,
         date: localDateTime,
         time: localDateTime,
+        scheduledTime: isoDateTime, // Added for Cloud Function
         orderDetails: _orderDetailsController.text,
         orderType: _orderType,
         driverName: _driverNameController.text,
@@ -256,18 +265,20 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
             : (_isAdmin ? null : widget.order?.totalAmount),
         vessels: _vessels,
         responseId: _responseId,
+        contactPersonName: _contactPersonNameController.text,
+        contactPersonNumber:  _contactPersonNumberController.text,
       );
 
       final bloc = context.read<OrderBloc>();
 
       if (widget.order == null) {
         bloc.add(CreateOrderEvent(order));
-        await _scheduleOrderReminder(order, isoDateTime);
+       // await _scheduleOrderReminder(order, isoDateTime);
       } else {
         bloc.add(UpdateOrderEvent(order));
-        if (widget.order?.date != date) {
+       /* if (widget.order?.date != date) {
           await _updateOrderReminder(order, isoDateTime);
-        }
+        }*/
       }
     } catch (e) {
       print("Order creation error: $e");
@@ -290,7 +301,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
     try {
       context.read<OrderBloc>().add(CancelOrderEvent(widget.order!.id));
-      await _cancelOrderReminder(widget.order!.id);
+     // await _cancelOrderReminder(widget.order!.id);
     } catch (e) {
       print("Order cancel error: $e");
     } finally {
@@ -459,9 +470,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         const SizedBox(height: 15),
         _textFieldView(_clientContactController, 'Client Phone/Email'),
         const SizedBox(height: 15),
-        _textFieldView(_numberofPaxController, 'Number of pax', isNumeric: true, allowDecimal: false),
+        _textFieldView(_numberofPaxController, 'Number of Pax', isNumeric: true, allowDecimal: false),
         const SizedBox(height: 15),
-        _textFieldView(_numberofKidsController, 'Number of kids', isNumeric: true, allowDecimal: false),
+        _textFieldView(_numberofKidsController, 'Number of Kids', isNumeric: true, allowDecimal: false),
         const SizedBox(height: 15),
         _textFieldView(_orderDetailsController, 'Order Details', isMultiline: true),
         const SizedBox(height: 15),
@@ -488,8 +499,11 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           _textFieldView(_totalAmountController, 'Total amount', isNumeric: true),
           const SizedBox(height: 15),
           _textFieldView(_advAmountController, 'Advance amount', isNumeric: true),
-
-        ]
+        ],
+        const SizedBox(height: 10),
+        _textFieldView(_contactPersonNameController, 'Contact Person Name'),
+        const SizedBox(height: 10),
+        _textFieldView(_contactPersonNumberController, 'Contact Person Number'),
       ],
     );
   }
@@ -1009,70 +1023,50 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
     }
   }*/
 
-  Future<void> _scheduleOrderReminder(OrderModel order, String isoDateTime) async {
-    final local = tz.local;
-    final orderDate = tz.TZDateTime.from(order.date, local);
-    final formattedDate = DateFormat('dd MMMM yyyy').format(order.date);
 
+  Future<void> _scheduleOrderReminder(OrderModel order, String isoDateTime) async {
+    final location = tz.getLocation('Europe/Dublin'); // Use Ireland time zone
+    final orderDate = tz.TZDateTime.from(order.date, location);
+    final formattedDate = DateFormat('dd MMMM yyyy').format(order.date);
+    final formattedTime = DateFormat('HH:mm:ss').format(order.time);
     const reminderHours = [6, 12, 18];
 
     for (int daysBefore = 7; daysBefore >= 0; daysBefore--) {
       final reminderDate = orderDate.subtract(Duration(days: daysBefore));
+      final hours = daysBefore == 0 || daysBefore >= 4 ? [6] : reminderHours;
 
-      if (daysBefore == 0 || daysBefore >= 4) {
+      for (int hour in hours) {
         final reminderDateTime = tz.TZDateTime(
-          local,
+          location,
           reminderDate.year,
           reminderDate.month,
           reminderDate.day,
-          6,
+          hour,
           0,
           0,
         );
 
-        if (reminderDateTime.isAfter(tz.TZDateTime.now(local))) {
+        if (reminderDateTime.isAfter(tz.TZDateTime.now(location))) {
           await FirebaseFirestore.instance.collection('scheduled_notifications').add({
             'orderId': order.id,
             'title': daysBefore == 0 ? 'Order Today' : 'Order Reminder',
             'body': daysBefore == 0
                 ? 'Your order for ${order.clientName} is today, $formattedDate!'
-                : 'You have an order for ${order.clientName} on $formattedDate',
+                : 'Upcoming order for ${order.clientName} on $formattedDate at $formattedTime',
             'scheduledTime': reminderDateTime.toIso8601String(),
             'createdAt': FieldValue.serverTimestamp(),
             'status': 'scheduled',
           });
-        }
-      } else {
-        for (int hour in reminderHours) {
-          final reminderDateTime = tz.TZDateTime(
-            local,
-            reminderDate.year,
-            reminderDate.month,
-            reminderDate.day,
-            hour,
-            0,
-            0,
-          );
-
-          if (reminderDateTime.isAfter(tz.TZDateTime.now(local))) {
-            await FirebaseFirestore.instance.collection('scheduled_notifications').add({
-              'orderId': order.id,
-              'title': 'Order Reminder',
-              'body': 'Upcoming order for ${order.clientName} on $formattedDate at ${DateFormat('hh:mm a').format(reminderDateTime)}',
-              'scheduledTime': reminderDateTime.toIso8601String(),
-              'createdAt': FieldValue.serverTimestamp(),
-              'status': 'scheduled',
-            });
-          }
         }
       }
     }
   }
 
   Future<void> _updateOrderReminder(OrderModel order, String isoDateTime) async {
-    final local = tz.local;
-    final orderDate = tz.TZDateTime.from(order.date, local);
+    final location = tz.getLocation('Europe/Dublin');
+    final orderDate = tz.TZDateTime.from(order.date, location);
     final formattedDate = DateFormat('dd MMMM yyyy').format(order.date);
+    final formattedTime = DateFormat('HH:mm:ss').format(order.time);
 
     CollectionReference notifications = FirebaseFirestore.instance.collection('scheduled_notifications');
     QuerySnapshot querySnapshot = await notifications.where('orderId', isEqualTo: order.id).get();
@@ -1087,68 +1081,54 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
 
     for (int daysBefore = 7; daysBefore >= 0; daysBefore--) {
       final reminderDate = orderDate.subtract(Duration(days: daysBefore));
+      final hours = daysBefore == 0 || daysBefore >= 4 ? [6] : reminderHours;
 
-      if (daysBefore == 0 || daysBefore >= 4) {
+      for (int hour in hours) {
         final reminderDateTime = tz.TZDateTime(
-          local,
+          location,
           reminderDate.year,
           reminderDate.month,
           reminderDate.day,
-          6,
+          hour,
           0,
           0,
         );
 
-        if (reminderDateTime.isAfter(tz.TZDateTime.now(local))) {
+        if (reminderDateTime.isAfter(tz.TZDateTime.now(location))) {
           await notifications.add({
             'orderId': order.id,
             'title': daysBefore == 0 ? 'Order Today' : 'Order Reminder',
             'body': daysBefore == 0
                 ? 'Your order for ${order.clientName} is today, $formattedDate!'
-                : 'You have an order for ${order.clientName} on $formattedDate',
+                : 'Upcoming order for ${order.clientName} on $formattedDate at $formattedTime',
             'scheduledTime': reminderDateTime.toIso8601String(),
             'createdAt': FieldValue.serverTimestamp(),
             'status': 'scheduled',
           });
-        }
-      } else {
-        for (int hour in reminderHours) {
-          final reminderDateTime = tz.TZDateTime(
-            local,
-            reminderDate.year,
-            reminderDate.month,
-            reminderDate.day,
-            hour,
-            0,
-            0,
-          );
-
-          if (reminderDateTime.isAfter(tz.TZDateTime.now(local))) {
-            await notifications.add({
-              'orderId': order.id,
-              'title': 'Order Reminder',
-              'body': 'Upcoming order for ${order.clientName} on $formattedDate at ${DateFormat('hh:mm a').format(reminderDateTime)}',
-              'scheduledTime': reminderDateTime.toIso8601String(),
-              'createdAt': FieldValue.serverTimestamp(),
-              'status': 'scheduled',
-            });
-          }
         }
       }
     }
   }
 
   Future<void> _cancelOrderReminder(String orderId) async {
-    CollectionReference notifications = FirebaseFirestore.instance.collection('scheduled_notifications');
-    QuerySnapshot querySnapshot = await notifications.where('orderId', isEqualTo: orderId).get();
+    try {
+      final notifications = FirebaseFirestore.instance.collection('scheduled_notifications');
+      final querySnapshot = await notifications
+          .where('orderId', isEqualTo: orderId)
+          .where('status', isEqualTo: 'scheduled')
+          .get();
 
-    if (querySnapshot.docs.isNotEmpty) {
+      final batch = FirebaseFirestore.instance.batch();
       for (var doc in querySnapshot.docs) {
-        await notifications.doc(doc.id).update({
+        batch.update(doc.reference, {
           'status': 'canceled',
           'canceledAt': FieldValue.serverTimestamp(),
         });
       }
+      await batch.commit();
+      print('Canceled ${querySnapshot.docs.length} notifications for order $orderId');
+    } catch (e) {
+      print('Error canceling notifications for order $orderId: $e');
     }
   }
 
@@ -1177,9 +1157,9 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       order.time.minute,
       order.time.second,
     );
-    final local = tz.local;
-    final tzOrderDateTime = tz.TZDateTime.from(orderDateTime, local);
-    final now = tz.TZDateTime.now(local);
+    final location = tz.getLocation('Europe/Dublin');
+    final tzOrderDateTime = tz.TZDateTime.from(orderDateTime, location);
+    final now = tz.TZDateTime.now(location);
     return tzOrderDateTime.isBefore(now);
   }
 
@@ -1206,7 +1186,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       final date = DateFormat('dd MMMM yyyy').parse(_dateController.text);
       final time = DateFormat('HH:mm:ss').parse(_timeController.text);
       final localDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute, time.second);
-      final tzDateTime = tz.TZDateTime.from(localDateTime, tz.local);
+      final tzDateTime = tz.TZDateTime.from(localDateTime, tz.getLocation('Europe/Dublin'));
       final isoDateTime = tzDateTime.toIso8601String();
 
       final imageUrls = await Future.wait(_images.map((image) async {
@@ -1221,6 +1201,7 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
         clientContact: _clientContactController.text,
         date: localDateTime,
         time: localDateTime,
+        scheduledTime: isoDateTime, // Added for Cloud Function
         orderDetails: _orderDetailsController.text,
         orderType: _orderType,
         driverName: _driverNameController.text,
@@ -1240,12 +1221,14 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
             : (_isAdmin ? null : widget.order!.totalAmount),
         vessels: _vessels,
         responseId: _responseId,
+        contactPersonName: _contactPersonNameController.text,
+        contactPersonNumber:  _contactPersonNumberController.text,
       );
 
       context.read<OrderBloc>().add(UpdateOrderEvent(order));
-      if (widget.order?.date != date) {
+     /* if (widget.order?.date != date) {
         await _updateOrderReminder(order, isoDateTime);
-      }
+      }*/
     } catch (e) {
       print("Order completion error: $e");
       SnackbarUtils.showSnackBar(context, TOASTSTYLE.ERROR, "Failed to complete order: $e");
@@ -1277,8 +1260,8 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
             child: ElevatedButton(
               onPressed: () => _handleCompleteOrUpdate(isPastDue, isVesselValid),
               style: ElevatedButton.styleFrom(
-                backgroundColor: isPastDue ? primaryColor.withOpacity(0.4) : primaryColor,
-                disabledBackgroundColor: isPastDue ? primaryColor.withOpacity(0.4) : primaryColor,
+                backgroundColor: isPastDue && !isVesselValid? primaryColor.withOpacity(0.4) : primaryColor,
+                disabledBackgroundColor: isPastDue && !isVesselValid? primaryColor.withOpacity(0.4) : primaryColor,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),

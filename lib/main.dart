@@ -5,6 +5,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:royalcaters/src/screens/auth/forgot_password_screen.dart';
 import 'package:royalcaters/utils/network_service.dart';
 import 'package:timezone/data/latest.dart' as tz;
 
@@ -173,6 +174,7 @@ class _MyAppState extends State<MyApp> {
         '/home': (_) => HomeScreen(),
         '/users': (_) => UserListScreen(),
         '/createorder': (_) => CreateOrderScreen(),
+        '/forgot_password': (_) => ForgotPasswordScreen(),
       },
       debugShowCheckedModeBanner: false,
     );

@@ -694,7 +694,18 @@ class _OrderListState extends State<OrderList> {
 
       // Create PDF document
       final pdf = pw.Document();
-
+      // List of allowed vessel names
+      final allowedVessels = [
+        'Flat Tray 1 kg',
+        'Tray 2 kg',
+        'Tray 4 kg',
+        'Tray 6 kg',
+        'Black Box',
+        'Hot Box',
+        'Chafing Dish',
+        'Water Tray',
+      ];
+      final vesselList = allowedVessels.join('\n');
       // Add a page with a table of orders
       pdf.addPage(
         pw.Page(
@@ -702,23 +713,25 @@ class _OrderListState extends State<OrderList> {
             return pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Text(
-                  'Order Report - ${DateFormat('dd MMMM, yyyy').format(selectedDate)}',
+                pw.Center(
+                  child: pw.Text(
+                  'Order - ${DateFormat('dd MMMM, yyyy').format(selectedDate)}',
                   style: pw.TextStyle(
                     fontSize: 24,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
-                pw.SizedBox(height: 20),
+                ),
+                pw.SizedBox(height: 50),
                 pw.Table(
                   border: pw.TableBorder.all(),
                   columnWidths: {
-                    0: const pw.FlexColumnWidth(2), // orderNumber
+                    0: const pw.FlexColumnWidth(3), // orderNumber
                     1: const pw.FlexColumnWidth(3), // date
                     2: const pw.FlexColumnWidth(3), // clientName
                     3: const pw.FlexColumnWidth(1.5), // numberOfPax
                     4: const pw.FlexColumnWidth(1.5), // numberOfKids
-                    5: const pw.FlexColumnWidth(5), // orderDetails
+                    5: const pw.FlexColumnWidth(4), // orderDetails
                     6: const pw.FlexColumnWidth(4), // vesselList
                   },
 
@@ -780,10 +793,7 @@ class _OrderListState extends State<OrderList> {
                     // Data rows
                     ...orders.map((order) {
 
-                      final vesselList = (order.vessels ?? [])
-                          .where((v) => v.isTaken && v.quantity > 0)
-                          .map((v) => '${v.name}: ${v.quantity}')
-                          .join(', ');
+
                       return pw.TableRow(
                         children: [
                           pw.Padding(
@@ -822,7 +832,7 @@ class _OrderListState extends State<OrderList> {
                           pw.Padding(
                             padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 14),
                             child: pw.Text(
-                              vesselList.isEmpty ? 'None' : vesselList,
+                              vesselList,
                               style: const pw.TextStyle(fontSize: 10),
                             ),
                           ),
