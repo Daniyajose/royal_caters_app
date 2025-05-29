@@ -464,17 +464,17 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 16),
-        _textFieldView(_clientNameController, 'Client Name'),
+        _textFieldView(_clientNameController, 'Client Name',isRequired : true),
         const SizedBox(height: 15),
-        _textFieldView(_clientLocationController, 'Client Location'),
+        _textFieldView(_clientLocationController, 'Client Location',isRequired : true),
         const SizedBox(height: 15),
-        _textFieldView(_clientContactController, 'Client Phone/Email'),
+        _textFieldView(_clientContactController, 'Client Phone/Email',isRequired : true),
         const SizedBox(height: 15),
         _textFieldView(_numberofPaxController, 'Number of Pax', isNumeric: true, allowDecimal: false),
         const SizedBox(height: 15),
         _textFieldView(_numberofKidsController, 'Number of Kids', isNumeric: true, allowDecimal: false),
         const SizedBox(height: 15),
-        _textFieldView(_orderDetailsController, 'Order Details', isMultiline: true),
+        _textFieldView(_orderDetailsController, 'Order Details', isMultiline: true,isRequired : true),
         const SizedBox(height: 15),
         _dateTimePickerView(),
         const SizedBox(height: 15),
@@ -501,24 +501,43 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
           _textFieldView(_advAmountController, 'Advance amount', isNumeric: true),
         ],
         const SizedBox(height: 10),
-        _textFieldView(_contactPersonNameController, 'Contact Person Name'),
+        _textFieldView(_contactPersonNameController, 'Contact Person Name',isRequired : true),
         const SizedBox(height: 10),
-        _textFieldView(_contactPersonNumberController, 'Contact Person Number'),
+        _textFieldView(_contactPersonNumberController, 'Contact Person Number',isRequired : true),
       ],
     );
   }
 
   Widget _textFieldView(TextEditingController controller, String labelText, {
     bool showObscureText = false, bool isMultiline = false,
-    bool isNumeric = false, bool allowDecimal = true, bool allowValidation = true}) {
+    bool isNumeric = false, bool allowDecimal = true,
+    bool allowValidation = true, bool isRequired = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Padding(
           padding: const EdgeInsets.only(bottom: 4.0),
-          child: Text(
+          child: /*Text(
             labelText,
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w400, color: primaryColor),
+          ),*/
+          Row(
+            children: [
+              Text(
+                labelText,
+                style: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w400, color: primaryColor),
+              ),
+              if (isRequired) // Add asterisk for required fields
+                const Text(
+                  ' *',
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
           ),
         ),
         TextFormField(
@@ -734,9 +753,29 @@ class _CreateOrderScreenState extends State<CreateOrderScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 0.0, bottom: 4.0),
-          child: Text(
+          child: /*Text(
             labelText,
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w400, color: primaryColor),
+          ),*/
+          Row(
+            children: [
+              Text(
+                labelText,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                  color: primaryColor, // Ensure primaryColor is defined
+                ),
+              ),
+              const Text(
+                ' *',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
         ),
         InkWell(

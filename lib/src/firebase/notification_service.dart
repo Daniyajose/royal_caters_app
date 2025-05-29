@@ -1,4 +1,5 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
@@ -68,6 +69,8 @@ class NotificationService {
                 channel.name,
                 channelDescription: channel.description,
                 icon: 'ic_notification',
+                color: Color(0xFF411043),
+                colorized: true
 
               ),
             ),
